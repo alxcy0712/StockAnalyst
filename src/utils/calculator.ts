@@ -1,36 +1,20 @@
 import dayjs from 'dayjs';
-import type { NavPoint } from '../types';
 
-export function getTradingDays(startDate: string, endDate: string): string[] {
-  const days: string[] = [];
-  let current = dayjs(startDate);
-  const end = dayjs(endDate);
+import type { PortfolioPerformancePoint } from '../types';
 
-  while (current.isBefore(end) || current.isSame(end)) {
-    const dayOfWeek = current.day();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      days.push(current.format('YYYY-MM-DD'));
-    }
-    current = current.add(1, 'day');
-  }
+type DatedReturnPoint = Pick<PortfolioPerformancePoint, 'date' | 'returnRate'>;
+type DatedNavPoint = Pick<PortfolioPerformancePoint, 'date' | 'nav'>;
 
-  return days;
-}
-
-export function calculateMaxDrawdown(navHistory: NavPoint[]): number {
-  let maxDrawdown = 0;
-  let peak = navHistory[0]?.nav || 100;
-
-  for (const point of navHistory) {
-    if (point.nav > peak) {
-      peak = point.nav;
-    } else {
-      const drawdown = (peak - point.nav) / peak;
-      maxDrawdown = Math.max(maxDrawdown, drawdown);
-    }
-  }
-
-  return maxDrawdown;
+export interface PerformanceMetrics {
+  currentNav: number;
+  totalReturn: number;
+  maxDrawdown: number;
+  annualizedReturn: number;
+  gain: number;
+  loss: number;
+  volatility: number;
+  sharpeRatio: number;
+  calmarRatio: number;
 }
 
 export function calculateAnnualizedReturn(
@@ -43,55 +27,54 @@ export function calculateAnnualizedReturn(
   return Math.pow(1 + totalReturn, 1 / years) - 1;
 }
 
-export function calculateVolatility(navHistory: NavPoint[]): number {
-  if (navHistory.length < 2) return 0;
+export function calculatePerformanceMaxDrawdown(points: DatedNavPoint[]): number {
+  if (points.length === 0) return 0;
 
-  const returns: number[] = [];
-  for (let i = 1; i < navHistory.length; i++) {
-    const prevValue = navHistory[i - 1].totalValueCNY;
-    const currValue = navHistory[i].totalValueCNY;
-    if (prevValue > 0) {
-      returns.push((currValue - prevValue) / prevValue);
+  let maxDrawdown = 0;
+  let peak = points[0].nav || 100;
+
+  for (const point of points) {
+    if (point.nav > peak) {
+      peak = point.nav;
+    } else if (peak > 0) {
+      const drawdown = (peak - point.nav) / peak;
+      maxDrawdown = Math.max(maxDrawdown, drawdown);
     }
   }
 
-  if (returns.length === 0) return 0;
-
-  const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-  const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
-  const dailyStd = Math.sqrt(variance);
-  
-  return dailyStd * Math.sqrt(252);
+  return maxDrawdown;
 }
 
-export function calculateSharpeRatio(navHistory: NavPoint[], riskFreeRate: number = 0.03): number {
-  if (navHistory.length < 2) return 0;
+export function calculatePerformanceVolatility(points: DatedReturnPoint[]): number {
+  if (points.length < 2) return 0;
 
-  const startDate = navHistory[0].date;
-  const endDate = navHistory[navHistory.length - 1].date;
-  const totalReturn = navHistory[navHistory.length - 1].returnRate;
-  const annualizedReturn = calculateAnnualizedReturn(totalReturn, startDate, endDate);
-  const volatility = calculateVolatility(navHistory);
+  const dailyReturns: number[] = [];
+  for (let index = 1; index < points.length; index += 1) {
+    dailyReturns.push(points[index].returnRate - points[index - 1].returnRate);
+  }
 
-  if (volatility === 0) return 0;
-  return (annualizedReturn - riskFreeRate) / volatility;
+  if (dailyReturns.length === 0) return 0;
+
+  const mean = dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length;
+  const variance = dailyReturns.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / dailyReturns.length;
+  return Math.sqrt(variance) * Math.sqrt(252);
 }
 
-export function calculateMaxConsecutive(navHistory: NavPoint[]): { gain: number; loss: number } {
-  if (navHistory.length < 2) return { gain: 0, loss: 0 };
+export function calculatePerformanceMaxConsecutive(points: DatedNavPoint[]): { gain: number; loss: number } {
+  if (points.length < 2) return { gain: 0, loss: 0 };
 
   let maxGain = 0;
   let maxLoss = 0;
   let currentGain = 0;
   let currentLoss = 0;
 
-  for (let i = 1; i < navHistory.length; i++) {
-    if (navHistory[i].totalValueCNY > navHistory[i - 1].totalValueCNY) {
-      currentGain++;
+  for (let index = 1; index < points.length; index += 1) {
+    if (points[index].nav > points[index - 1].nav) {
+      currentGain += 1;
       currentLoss = 0;
       maxGain = Math.max(maxGain, currentGain);
-    } else if (navHistory[i].totalValueCNY < navHistory[i - 1].totalValueCNY) {
-      currentLoss++;
+    } else if (points[index].nav < points[index - 1].nav) {
+      currentLoss += 1;
       currentGain = 0;
       maxLoss = Math.max(maxLoss, currentLoss);
     } else {
@@ -101,4 +84,46 @@ export function calculateMaxConsecutive(navHistory: NavPoint[]): { gain: number;
   }
 
   return { gain: maxGain, loss: maxLoss };
+}
+
+export function calculatePerformanceSharpeRatio(
+  points: PortfolioPerformancePoint[],
+  riskFreeRate: number = 0.03
+): number {
+  if (points.length < 2) return 0;
+
+  const totalReturn = points[points.length - 1].returnRate;
+  const annualizedReturn = calculateAnnualizedReturn(totalReturn, points[0].date, points[points.length - 1].date);
+  const volatility = calculatePerformanceVolatility(points);
+
+  if (volatility === 0) return 0;
+  return (annualizedReturn - riskFreeRate) / volatility;
+}
+
+export function calculatePerformanceMetrics(
+  points: PortfolioPerformancePoint[],
+  riskFreeRate: number = 0.03
+): PerformanceMetrics | null {
+  if (points.length === 0) return null;
+
+  const current = points[points.length - 1];
+  const totalReturn = current.returnRate;
+  const annualizedReturn = calculateAnnualizedReturn(totalReturn, points[0].date, current.date);
+  const maxDrawdown = calculatePerformanceMaxDrawdown(points);
+  const { gain, loss } = calculatePerformanceMaxConsecutive(points);
+  const volatility = calculatePerformanceVolatility(points);
+  const sharpeRatio = volatility > 0 ? (annualizedReturn - riskFreeRate) / volatility : 0;
+  const calmarRatio = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : 0;
+
+  return {
+    currentNav: current.nav,
+    totalReturn,
+    maxDrawdown,
+    annualizedReturn,
+    gain,
+    loss,
+    volatility,
+    sharpeRatio,
+    calmarRatio,
+  };
 }

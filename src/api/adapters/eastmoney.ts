@@ -146,8 +146,9 @@ export async function getFundNavHistory(
             const changeRaw = tdMatches[3].replace(/<[^>]*>/g, '').trim();
             const unitNum = parseFloat(unitRaw.replace(/,/g, ''));
             const accumNum = parseFloat(accumRaw.replace(/,/g, ''));
-            const changePercent = parseFloat(changeRaw.replace('%', '')) / 100;
-            if (dateRaw && Number.isFinite(unitNum) && Number.isFinite(accumNum) && Number.isFinite(changePercent)) {
+            // 日增长率可能为空，视为0%
+            const changePercent = changeRaw ? parseFloat(changeRaw.replace('%', '')) / 100 : 0;
+            if (dateRaw && Number.isFinite(unitNum) && Number.isFinite(accumNum)) {
               parsed.push({ date: dateRaw, unitNav: unitNum, accumulatedNav: accumNum, changePercent });
             }
           }

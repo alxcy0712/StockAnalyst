@@ -1,6 +1,6 @@
 // 资产类型
 export type AssetType = 'a_stock' | 'hk_stock' | 'fund';
-export type Currency = 'CNY' | 'HKD';
+export type Currency = 'CNY' | 'HKD' | 'USD';
 
 // 资产基础定义
 export interface Asset {
@@ -23,6 +23,30 @@ export interface NavPoint {
   totalCostCNY: number;
   nav: number;
   returnRate: number;
+}
+
+export type PortfolioChartMode = 'scale' | 'performance';
+
+export interface PortfolioScalePoint {
+  date: string;
+  totalValueCNY: number;
+  totalCostCNY: number;
+  floatingPnLCNY: number;
+  floatingReturnRate: number;
+}
+
+export interface PortfolioPerformancePoint {
+  date: string;
+  portfolioValueCNY: number;
+  contributionCNY: number;
+  unitsOutstanding: number;
+  nav: number;
+  returnRate: number;
+}
+
+export interface PortfolioSeriesResult {
+  scale: PortfolioScalePoint[];
+  performance: PortfolioPerformancePoint[];
 }
 
 // 基金数据（天天基金网格式）

@@ -43,11 +43,13 @@ class DataCache {
   }
 
   async get(assetId: string, asset: Asset, cacheType: 'nav' = 'nav'): Promise<any | null> {
+    const cacheKey = `${assetId}_${cacheType}`;
+    return this.getByKey(cacheKey, asset);
+  }
+
+  async getByKey(cacheKey: string, asset: Asset): Promise<any | null> {
     await this.init();
     if (!this.db) return null;
-
-    // 分离缓存键：日线用 ${id}_nav，K线用 ${id}_kline
-    const cacheKey = `${assetId}_${cacheType}`;
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], 'readonly');
@@ -56,7 +58,7 @@ class DataCache {
 
       request.onsuccess = () => {
         const entry: CacheEntry | undefined = request.result;
-        
+
         if (!entry) {
           resolve(null);
           return;
@@ -86,11 +88,13 @@ class DataCache {
   }
 
   async set(assetId: string, data: any, asset: Asset, cacheType: 'nav' = 'nav'): Promise<void> {
+    const cacheKey = `${assetId}_${cacheType}`;
+    return this.setByKey(cacheKey, data, asset);
+  }
+
+  async setByKey(cacheKey: string, data: any, asset: Asset): Promise<void> {
     await this.init();
     if (!this.db) return;
-
-    // 分离缓存键
-    const cacheKey = `${assetId}_${cacheType}`;
 
     const entry: CacheEntry = {
       assetId: cacheKey,
