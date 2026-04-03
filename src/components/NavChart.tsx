@@ -181,6 +181,7 @@ export function NavChart() {
     if (assets.length === 0) {
       setScaleSeries([]);
       setPerformanceSeries([]);
+      setIsSeriesLoading(false);
       return;
     }
 
@@ -270,8 +271,9 @@ export function NavChart() {
 
     const activeSeries = chartMode === 'scale' ? scaleSeries : performanceSeries;
 
-    // 初始化或获取图表实例
-    if (!chartInstance.current) {
+    // 当 assets 从空变为有数据时，DOM 会重新创建，需要重新初始化图表
+    if (!chartInstance.current || chartInstance.current.getDom?.() !== chartRef.current) {
+      chartInstance.current?.dispose?.();
       chartInstance.current = echarts.init(chartRef.current);
     }
 
