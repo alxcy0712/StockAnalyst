@@ -16,12 +16,12 @@ export function AssetAllocationChart() {
   const { isDark } = useThemeStore();
 
   useEffect(() => {
-    if (!chartRef.current) return;
     if (assets.length === 0) {
       chartInstance.current?.dispose();
       chartInstance.current = null;
       return;
     }
+    if (!chartRef.current) return;
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current);
     }
