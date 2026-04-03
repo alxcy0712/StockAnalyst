@@ -17,6 +17,63 @@ export interface PerformanceMetrics {
   calmarRatio: number;
 }
 
+export interface BetaCalculationResult {
+  beta: number;
+  betaReturn: number;
+  alpha: number;
+}
+
+/**
+ * 计算Beta系数和Beta收益
+ * Beta = Cov(组合收益率, 基准收益率) / Var(基准收益率)
+ * Beta收益 = Beta × 基准收益
+ * @param portfolioReturns 组合日收益率数组
+ * @param benchmarkReturns 基准日收益率数组
+ * @param totalBenchmarkReturn 基准累计收益率
+ */
+export function calculateBeta(
+  portfolioReturns: number[],
+  benchmarkReturns: number[],
+  totalBenchmarkReturn: number
+): BetaCalculationResult {
+  if (portfolioReturns.length !== benchmarkReturns.length || portfolioReturns.length < 2) {
+    return { beta: 1, betaReturn: totalBenchmarkReturn, alpha: 0 };
+  }
+
+  const n = portfolioReturns.length;
+
+  // 计算均值
+  const meanPortfolio = portfolioReturns.reduce((sum, r) => sum + r, 0) / n;
+  const meanBenchmark = benchmarkReturns.reduce((sum, r) => sum + r, 0) / n;
+
+  // 计算协方差和方差
+  let covariance = 0;
+  let variance = 0;
+
+  for (let i = 0; i < n; i++) {
+    const diffPortfolio = portfolioReturns[i] - meanPortfolio;
+    const diffBenchmark = benchmarkReturns[i] - meanBenchmark;
+    covariance += diffPortfolio * diffBenchmark;
+    variance += diffBenchmark * diffBenchmark;
+  }
+
+  covariance /= n;
+  variance /= n;
+
+  // Beta = 协方差 / 方差
+  const beta = variance > 0 ? covariance / variance : 1;
+
+  // Beta收益 = Beta × 基准累计收益
+  const betaReturn = beta * totalBenchmarkReturn;
+
+  // Alpha = 组合收益 - Beta收益 (詹森阿尔法)
+  // 这里我们传入的是总收益，但计算需要用实际组合收益
+  // 为了保持一致性，我们返回beta和betaReturn，Alpha在外部计算
+  const alpha = 0; // 占位，实际Alpha在外部用 portfolioReturn - betaReturn 计算
+
+  return { beta, betaReturn, alpha };
+}
+
 export function calculateAnnualizedReturn(
   totalReturn: number,
   startDate: string,

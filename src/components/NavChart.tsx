@@ -15,7 +15,7 @@ import type {
   PortfolioPerformancePoint,
   PortfolioScalePoint,
 } from '../types';
-import { calculatePerformanceMetrics } from '../utils/calculator';
+import { calculatePerformanceMetrics, calculateBeta } from '../utils/calculator';
 import { dataCache, initCache } from '../utils/dataCache';
 import { calculatePortfolioSeries, clearPortfolioSeriesCache } from '../utils/portfolioSeries';
 
@@ -155,7 +155,26 @@ export function NavChart() {
     const benchmarkReturn = benchmarkData[benchmarkData.length - 1].returnRate;
     const alpha = portfolioReturn - benchmarkReturn;
 
-    return { portfolioReturn, benchmarkReturn, alpha };
+    const portfolioDailyReturns: number[] = [];
+    const benchmarkDailyReturns: number[] = [];
+
+    for (let i = 1; i < performanceSeries.length; i++) {
+      const portfolioDailyReturn = performanceSeries[i].returnRate - performanceSeries[i - 1].returnRate;
+      const date = performanceSeries[i].date;
+      const benchmarkPoint = benchmarkData.find((item) => item.date === date);
+      if (benchmarkPoint) {
+        const benchmarkIndex = benchmarkData.findIndex((item) => item.date === date);
+        if (benchmarkIndex > 0) {
+          const benchmarkDailyReturn = benchmarkPoint.returnRate - benchmarkData[benchmarkIndex - 1].returnRate;
+          portfolioDailyReturns.push(portfolioDailyReturn);
+          benchmarkDailyReturns.push(benchmarkDailyReturn);
+        }
+      }
+    }
+
+    const { beta, betaReturn } = calculateBeta(portfolioDailyReturns, benchmarkDailyReturns, benchmarkReturn);
+
+    return { portfolioReturn, benchmarkReturn, alpha, beta, betaReturn };
   }, [benchmarkData, chartMode, performanceSeries]);
 
   // 计算系列数据（仅在资产或刷新键变化时）
@@ -554,11 +573,12 @@ export function NavChart() {
                 helpDesc="组合收益减去基准收益，正值表示跑赢基准"
               />
               <MetricCard
-                label="相对表现"
-                value={benchmarkComparison.alpha >= 0 ? '跑赢' : '跑输'}
-                valueClass={getValueClass(benchmarkComparison.alpha)}
-                helpTitle="相对表现"
-                helpDesc="组合相对所选基准的整体表现评价"
+                label="Beta收益"
+                value={formatPercent(benchmarkComparison.betaReturn, 2, true)}
+                valueClass={getValueClass(benchmarkComparison.betaReturn)}
+                subValue={`β=${benchmarkComparison.beta.toFixed(2)}`}
+                helpTitle="Beta收益"
+                helpDesc="基于组合Beta系数计算的系统性风险收益：Beta收益 = Beta × 基准收益。子值显示组合的Beta系数，β>1表示波动大于基准，β<1表示波动小于基准。"
               />
             </div>
           )}

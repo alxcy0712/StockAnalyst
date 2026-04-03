@@ -130,7 +130,7 @@ function AssetCard({
             <div>
               <span className="text-gray-400 dark:text-gray-500 block mb-0.5">单价</span>
               <p className="font-medium text-gray-700 dark:text-gray-300">
-                {CURRENCY_SYMBOLS[asset.currency]}{asset.purchasePrice.toFixed(3)}
+                {CURRENCY_SYMBOLS[asset.currency]}{asset.purchasePrice.toFixed(4)}
               </p>
             </div>
             <div>
