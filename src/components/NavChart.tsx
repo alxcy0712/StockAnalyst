@@ -55,7 +55,7 @@ function MetricCard({
 
 const METRIC_GRID_CLASS = 'grid grid-cols-3 gap-2';
 
-function formatCurrency(value: number, digits: number = 0): string {
+function formatCurrency(value: number, digits: number = 2): string {
   return `¥${value.toLocaleString('zh-CN', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

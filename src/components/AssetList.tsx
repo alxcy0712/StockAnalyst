@@ -79,7 +79,7 @@ export function AssetList() {
         <div className="flex justify-between items-center">
           <span className="text-xs text-gray-500 dark:text-gray-400">总成本</span>
           <span className="text-base font-semibold text-gray-900 dark:text-white">
-            ¥{totalCost.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            ¥{totalCost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
       </div>
@@ -140,7 +140,7 @@ function AssetCard({
             <div>
               <span className="text-gray-400 dark:text-gray-500 block mb-0.5">成本</span>
               <p className="font-medium text-gray-700 dark:text-gray-300">
-                {CURRENCY_SYMBOLS[asset.currency]}{cost.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {CURRENCY_SYMBOLS[asset.currency]}{cost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>

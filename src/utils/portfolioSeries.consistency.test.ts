@@ -50,13 +50,13 @@ const fixedAStockData = [
   { date: '20200123', open: 845.5, close: 846.5, low: 844.5, high: 847.5, volume: 2200000 },
 ];
 
-const fixedFundData1 = [
+const fixedBondFundData = [
   { date: '2020-01-21', unitNav: 1.028, accumulatedNav: 1.028, changePercent: 0 },
   { date: '2020-01-22', unitNav: 1.029, accumulatedNav: 1.029, changePercent: 0.001 },
   { date: '2020-01-23', unitNav: 1.03, accumulatedNav: 1.03, changePercent: 0.001 },
 ];
 
-const fixedFundData2 = [
+const fixedSP500Data = [
   { date: '2020-01-21', unitNav: 2.1323, accumulatedNav: 2.1323, changePercent: 0 },
   { date: '2020-01-22', unitNav: 2.14, accumulatedNav: 2.14, changePercent: 0.0036 },
   { date: '2020-01-23', unitNav: 2.15, accumulatedNav: 2.15, changePercent: 0.0047 },
@@ -110,26 +110,42 @@ describe('Portfolio Data Consistency E2E Test', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearPortfolioSeriesCache();
-  });
 
-  it('should maintain data consistency across add/refresh/delete/re-add operations', async () => {
     vi.mocked(getHKStockKLineEastmoney).mockResolvedValue(fixedHKData.map(d => ({...d})));
     vi.mocked(getAStockKLineEastmoney).mockResolvedValue(fixedAStockData.map(d => ({...d})));
 
+    vi.mocked(getFundNavAll).mockImplementation((fundCode: string) => {
+      if (fundCode === '001235') {
+        return Promise.resolve(fixedBondFundData.map(d => ({...d})));
+      }
+      if (fundCode === '513500') {
+        return Promise.resolve(fixedSP500Data.map(d => ({...d})));
+      }
+      return Promise.resolve([]);
+    });
+  });
+
+  it('should maintain data consistency across add/refresh/delete/re-add operations', async () => {
     const assetsStep1 = [asset1Tencent, asset2Moutai, asset3BondFund];
 
-    let fundCallCount = 0;
-    vi.mocked(getFundNavAll).mockImplementation(() => {
-      fundCallCount++;
-      return Promise.resolve(fundCallCount % 2 === 1 
-        ? fixedFundData1.map(d => ({...d}))
-        : []);
-    });
-    vi.mocked(getFundQuote).mockResolvedValue({
-      fundcode: '001235',
-      name: '中银国有企业债A',
-      dwjz: '1.028',
-      jzrq: '2020-01-21',
+    vi.mocked(getFundQuote).mockImplementation((code: string) => {
+      if (code === '001235') {
+        return Promise.resolve({
+          fundcode: '001235',
+          name: '中银国有企业债A',
+          dwjz: '1.028',
+          jzrq: '2020-01-21',
+        });
+      }
+      if (code === '513500') {
+        return Promise.resolve({
+          fundcode: '513500',
+          name: '标普500ETF博时',
+          dwjz: '2.1323',
+          jzrq: '2020-01-21',
+        });
+      }
+      return Promise.resolve(null);
     });
 
     const result1 = await calculatePortfolioSeries(assetsStep1, false);
@@ -147,7 +163,6 @@ describe('Portfolio Data Consistency E2E Test', () => {
     expect(data1.performance.length).toBeGreaterThan(0);
 
     clearPortfolioSeriesCache();
-    fundCallCount = 0;
 
     const result2 = await calculatePortfolioSeries(assetsStep1, true);
     const v2 = result2.performance[result2.performance.length - 1]?.nav;
@@ -179,27 +194,6 @@ describe('Portfolio Data Consistency E2E Test', () => {
 
     const assetsStep3 = [...assetsStep1, asset4SP500];
 
-    fundCallCount = 0;
-    vi.mocked(getFundNavAll).mockImplementation(() => {
-      fundCallCount++;
-      return Promise.resolve(fundCallCount % 2 === 1
-        ? fixedFundData1.map(d => ({...d}))
-        : fixedFundData2.map(d => ({...d})));
-    });
-    vi.mocked(getFundQuote)
-      .mockResolvedValueOnce({
-        fundcode: '001235',
-        name: '中银国有企业债A',
-        dwjz: '1.028',
-        jzrq: '2020-01-21',
-      })
-      .mockResolvedValueOnce({
-        fundcode: '513500',
-        name: '标普500ETF博时',
-        dwjz: '2.1323',
-        jzrq: '2020-01-21',
-      });
-
     clearPortfolioSeriesCache();
     const result3 = await calculatePortfolioSeries(assetsStep3, true);
     const v3 = result3.performance[result3.performance.length - 1]?.nav;
@@ -214,14 +208,6 @@ describe('Portfolio Data Consistency E2E Test', () => {
     expect(data3.lastScalePoint.totalCostCNY).toBeGreaterThan(data1.lastScalePoint.totalCostCNY);
 
     const assetsStep4 = assetsStep1;
-
-    fundCallCount = 0;
-    vi.mocked(getFundNavAll).mockImplementation(() => {
-      fundCallCount++;
-      return Promise.resolve(fundCallCount % 2 === 1
-        ? fixedFundData1.map(d => ({...d}))
-        : []);
-    });
 
     clearPortfolioSeriesCache();
     const result4 = await calculatePortfolioSeries(assetsStep4, true);
@@ -253,27 +239,6 @@ describe('Portfolio Data Consistency E2E Test', () => {
     }
 
     const assetsStep5 = [...assetsStep1, asset4SP500];
-
-    fundCallCount = 0;
-    vi.mocked(getFundNavAll).mockImplementation(() => {
-      fundCallCount++;
-      return Promise.resolve(fundCallCount % 2 === 1
-        ? fixedFundData1.map(d => ({...d}))
-        : fixedFundData2.map(d => ({...d})));
-    });
-    vi.mocked(getFundQuote)
-      .mockResolvedValueOnce({
-        fundcode: '001235',
-        name: '中银国有企业债A',
-        dwjz: '1.028',
-        jzrq: '2020-01-21',
-      })
-      .mockResolvedValueOnce({
-        fundcode: '513500',
-        name: '标普500ETF博时',
-        dwjz: '2.1323',
-        jzrq: '2020-01-21',
-      });
 
     clearPortfolioSeriesCache();
     const result5 = await calculatePortfolioSeries(assetsStep5, true);
