@@ -97,7 +97,8 @@ export function normalizeRatio(value: number): number {
 }
 
 export function isAssetActiveOnDate(asset: Asset, pointDate: string): boolean {
-  return dayjs(asset.purchaseDate).format('YYYY-MM-DD') <= dayjs(pointDate).format('YYYY-MM-DD');
+  // 直接字符串比较，避免重复格式化日期 (YYYY-MM-DD 格式可直接比较)
+  return asset.purchaseDate <= pointDate;
 }
 
 export function getAssetPointPrice(
@@ -139,48 +140,58 @@ export function buildPortfolioScaleSeries(
   const endDate = options.endDate ?? dayjs().format('YYYY-MM-DD');
   const allDays = getAllDays(startDate, endDate);
 
+  const assetTradingDays = buildAssetTradingDays(assetHistories);
+
+  const assetMeta = assets.map((asset) => ({
+    asset,
+    costCNY: calculateContributionCNY(asset),
+    tradingDays: assetTradingDays.get(asset.id),
+  }));
+
   const purchaseCostCache = new Map<string, number>();
   assets.forEach((asset) => {
     purchaseCostCache.set(asset.id, calculateContributionCNY(asset));
   });
 
-  const assetTradingDays = buildAssetTradingDays(assetHistories);
   const scalePoints: PortfolioScalePoint[] = [];
+  let accumulatedCostCNY = 0;
+  let activeAssetIndices: number[] = [];
 
-  for (const date of allDays) {
-    const currentDate = dayjs(date).format('YYYY-MM-DD');
-    const activeAssets = assets.filter((asset) => isAssetActiveOnDate(asset, currentDate));
+  for (const currentDate of allDays) {
+    for (let i = 0; i < assetMeta.length; i++) {
+      if (!activeAssetIndices.includes(i) && assetMeta[i].asset.purchaseDate <= currentDate) {
+        activeAssetIndices.push(i);
+        accumulatedCostCNY += assetMeta[i].costCNY;
+      }
+    }
 
-    if (activeAssets.length === 0) {
+    if (activeAssetIndices.length === 0) {
       continue;
     }
 
-    const totalCostCNY = activeAssets.reduce((sum, asset) => {
-      return sum + (purchaseCostCache.get(asset.id) ?? 0);
-    }, 0);
-
-    const totalValueCNY = activeAssets.reduce((sum, asset) => {
+    let totalValueCNY = 0;
+    for (const idx of activeAssetIndices) {
+      const { asset, tradingDays } = assetMeta[idx];
       const pointPrice = getAssetPointPrice(
         asset,
         currentDate,
         assetHistories[asset.id],
-        assetTradingDays.get(asset.id)
+        tradingDays
       );
+      totalValueCNY += calculateAssetPointValueCNY(asset, currentDate, pointPrice);
+    }
 
-      return sum + calculateAssetPointValueCNY(asset, currentDate, pointPrice);
-    }, 0);
-
-    if (totalCostCNY <= 0) {
+    if (accumulatedCostCNY <= 0) {
       continue;
     }
 
-    const floatingPnLCNY = totalValueCNY - totalCostCNY;
-    const floatingReturnRate = floatingPnLCNY / totalCostCNY;
+    const floatingPnLCNY = totalValueCNY - accumulatedCostCNY;
+    const floatingReturnRate = floatingPnLCNY / accumulatedCostCNY;
 
     scalePoints.push({
       date: currentDate,
       totalValueCNY,
-      totalCostCNY,
+      totalCostCNY: accumulatedCostCNY,
       floatingPnLCNY,
       floatingReturnRate,
     });

@@ -248,7 +248,7 @@ describe('NavChart', () => {
 
     expect(screen.getAllByText('基准收益')[0]).toBeInTheDocument();
     expect(screen.getAllByText('超额收益 (Alpha)')[0]).toBeInTheDocument();
-    expect(screen.getAllByText('相对表现')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Beta收益')[0]).toBeInTheDocument();
 
     expect(screen.queryAllByText('总投入成本')).toHaveLength(0);
     expect(mockGetBenchmarkNavHistory).toHaveBeenCalledWith('csi300', '20240101', '20240103');

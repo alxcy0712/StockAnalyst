@@ -105,15 +105,21 @@ export function calculatePerformanceMaxDrawdown(points: DatedNavPoint[]): number
 export function calculatePerformanceVolatility(points: DatedReturnPoint[]): number {
   if (points.length < 2) return 0;
 
-  const dailyReturns: number[] = [];
+  let count = 0;
+  let mean = 0;
+  let m2 = 0;
+
   for (let index = 1; index < points.length; index += 1) {
-    dailyReturns.push(points[index].returnRate - points[index - 1].returnRate);
+    const dailyReturn = points[index].returnRate - points[index - 1].returnRate;
+    count++;
+    const delta = dailyReturn - mean;
+    mean += delta / count;
+    m2 += delta * (dailyReturn - mean);
   }
 
-  if (dailyReturns.length === 0) return 0;
+  if (count === 0) return 0;
 
-  const mean = dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length;
-  const variance = dailyReturns.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / dailyReturns.length;
+  const variance = m2 / count;
   return Math.sqrt(variance) * Math.sqrt(252);
 }
 

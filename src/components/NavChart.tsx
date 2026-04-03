@@ -158,17 +158,16 @@ export function NavChart() {
     const portfolioDailyReturns: number[] = [];
     const benchmarkDailyReturns: number[] = [];
 
+    const benchmarkMap = new Map(benchmarkData.map((item, index) => [item.date, { item, index }]));
+
     for (let i = 1; i < performanceSeries.length; i++) {
       const portfolioDailyReturn = performanceSeries[i].returnRate - performanceSeries[i - 1].returnRate;
       const date = performanceSeries[i].date;
-      const benchmarkPoint = benchmarkData.find((item) => item.date === date);
-      if (benchmarkPoint) {
-        const benchmarkIndex = benchmarkData.findIndex((item) => item.date === date);
-        if (benchmarkIndex > 0) {
-          const benchmarkDailyReturn = benchmarkPoint.returnRate - benchmarkData[benchmarkIndex - 1].returnRate;
-          portfolioDailyReturns.push(portfolioDailyReturn);
-          benchmarkDailyReturns.push(benchmarkDailyReturn);
-        }
+      const benchmarkEntry = benchmarkMap.get(date);
+      if (benchmarkEntry && benchmarkEntry.index > 0) {
+        const benchmarkDailyReturn = benchmarkEntry.item.returnRate - benchmarkData[benchmarkEntry.index - 1].returnRate;
+        portfolioDailyReturns.push(portfolioDailyReturn);
+        benchmarkDailyReturns.push(benchmarkDailyReturn);
       }
     }
 
@@ -365,10 +364,8 @@ export function NavChart() {
         ];
 
         if (chartMode === 'performance' && benchmarkData.length > 0 && selectedBenchmark !== 'none') {
-          const benchmarkSeries = performanceSeries.map((point) => {
-            const benchmarkPoint = benchmarkData.find((item) => item.date === point.date);
-            return benchmarkPoint?.nav ?? null;
-          });
+          const benchmarkMap = new Map(benchmarkData.map((item) => [item.date, item.nav]));
+          const benchmarkSeries = performanceSeries.map((point) => benchmarkMap.get(point.date) ?? null);
 
           seriesData.push({
             name: api.benchmark.configs[selectedBenchmark].name,
