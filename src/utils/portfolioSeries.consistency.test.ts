@@ -269,4 +269,63 @@ describe('Portfolio Data Consistency E2E Test', () => {
       expect(data5.performance[i].portfolioValueCNY).toBeCloseTo(data3.performance[i].portfolioValueCNY, 6);
     }
   });
+
+  it('keeps the latest fund value stable when repeated refreshes alternate between quote success and timeout', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2020-01-23T12:00:00Z'));
+
+    try {
+      const singleFundAsset: Asset = {
+        id: 'asset-fund-refresh',
+        type: 'fund',
+        code: '001235',
+        name: '中银国有企业债A',
+        purchaseDate: '2020-01-21',
+        purchasePrice: 1,
+        quantity: 100,
+        currency: 'CNY',
+      };
+
+      vi.mocked(getFundNavAll).mockResolvedValue([
+        { date: '2020-01-21', unitNav: 1, accumulatedNav: 1, changePercent: 0 },
+        { date: '2020-01-22', unitNav: 1.02, accumulatedNav: 1.02, changePercent: 0.02 },
+      ]);
+
+      vi.mocked(getFundQuote)
+        .mockResolvedValueOnce({
+          fundcode: '001235',
+          name: '中银国有企业债A',
+          dwjz: '1.02',
+          jzrq: '2020-01-22',
+        })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          fundcode: '001235',
+          name: '中银国有企业债A',
+          dwjz: '1.02',
+          jzrq: '2020-01-22',
+        });
+
+      clearPortfolioSeriesCache();
+      const firstResult = await calculatePortfolioSeries([singleFundAsset], true);
+
+      clearPortfolioSeriesCache();
+      const secondResult = await calculatePortfolioSeries([singleFundAsset], true);
+
+      clearPortfolioSeriesCache();
+      const thirdResult = await calculatePortfolioSeries([singleFundAsset], true);
+
+      const latestTotalValues = [firstResult, secondResult, thirdResult].map(
+        (result) => result.scale[result.scale.length - 1]?.totalValueCNY
+      );
+      const latestNavs = [firstResult, secondResult, thirdResult].map(
+        (result) => result.performance[result.performance.length - 1]?.nav
+      );
+
+      latestTotalValues.forEach((value) => expect(value).toBeCloseTo(102, 6));
+      latestNavs.forEach((value) => expect(value).toBeCloseTo(102, 6));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

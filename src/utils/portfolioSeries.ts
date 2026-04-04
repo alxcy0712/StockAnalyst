@@ -264,6 +264,15 @@ function getAssetCacheKey(asset: Asset): string {
   return `${asset.code}_${asset.type}_${asset.purchaseDate}`;
 }
 
+function parsePositiveNumber(value?: string): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export async function buildAssetPriceHistoryMaps(
   assets: Asset[],
   forceRefresh: boolean = false,
@@ -310,14 +319,43 @@ export async function buildAssetPriceHistoryMaps(
             }
           });
 
-          const fundData = await api.fund.getQuote(asset.code);
-          if (fundData) {
-            const latestHist = await api.fund.getNavHistory(asset.code, fundData.jzrq, fundData.jzrq);
-            if (latestHist.length > 0) {
-              adjustedNav = adjustedNav * (1 + (latestHist[0].changePercent || 0));
+          if (sortedHist.length === 0) {
+            history.set(asset.purchaseDate, baseNav);
+            history.set(today, baseNav);
+          } else {
+            const latestHistEntry = sortedHist[sortedHist.length - 1];
+            const latestHistDate = normalizeHistoryDate(latestHistEntry.date);
+            const latestAdjustedNav = history.get(latestHistDate) ?? adjustedNav;
+            const fundData = await api.fund.getQuote(asset.code);
+
+            let referenceAdjustedNav = latestAdjustedNav;
+            let referenceOfficialNav = latestHistEntry.unitNav;
+
+            if (fundData) {
+              const quoteDate = fundData.jzrq ? normalizeHistoryDate(fundData.jzrq) : latestHistDate;
+              const officialNav = parsePositiveNumber(fundData.dwjz);
+              const estimatedNav = parsePositiveNumber(fundData.gsz);
+              const canApplyOfficialQuote = Boolean(
+                officialNav &&
+                latestHistEntry.unitNav > 0 &&
+                quoteDate >= latestHistDate
+              );
+
+              if (canApplyOfficialQuote && officialNav) {
+                referenceAdjustedNav = latestAdjustedNav * (officialNav / latestHistEntry.unitNav);
+                referenceOfficialNav = officialNav;
+                history.set(quoteDate, referenceAdjustedNav);
+              }
+
+              const latestVisibleNav = estimatedNav ?? officialNav;
+              if (latestVisibleNav && referenceOfficialNav > 0) {
+                history.set(today, referenceAdjustedNav * (latestVisibleNav / referenceOfficialNav));
+              } else {
+                history.set(today, referenceAdjustedNav);
+              }
+            } else {
+              history.set(today, referenceAdjustedNav);
             }
-            history.set(fundData.jzrq, adjustedNav);
-            history.set(today, adjustedNav);
           }
         } else {
           const startDate = asset.purchaseDate.replace(/-/g, '');
