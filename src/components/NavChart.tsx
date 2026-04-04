@@ -26,6 +26,7 @@ function MetricCard({
   valueClass,
   helpTitle,
   helpDesc,
+  index,
 }: {
   label: string;
   value: React.ReactNode;
@@ -33,22 +34,38 @@ function MetricCard({
   valueClass?: string;
   helpTitle: string;
   helpDesc: string;
+  index?: number;
 }) {
   return (
-    <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors duration-200">
-      <div className="flex items-center gap-1 mb-1">
-        <span className="text-[10px] text-gray-400 dark:text-gray-500">{label}</span>
-        <div className="group relative">
-          <HelpCircle className="w-3 h-3 text-gray-300 dark:text-gray-600 cursor-help" />
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 p-2.5 bg-gray-900 dark:bg-gray-800 text-white text-[11px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
-            <p className="font-medium mb-1">{helpTitle}</p>
-            <p className="text-gray-300 leading-relaxed">{helpDesc}</p>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
+    <div 
+      className="group bg-[#f5f5f7] dark:bg-[#1c1c1e]/60 rounded-2xl p-3.5 
+                 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-xl
+                 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
+                 opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
+      style={{ animationDelay: `${(index ?? 0) * 50}ms` }}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-[11px] font-medium text-[#86868b] dark:text-[#8e8e93]">{label}</span>
+        <div className="relative">
+          <HelpCircle className="w-3 h-3 text-[#c7c7cc] dark:text-[#636366] cursor-help transition-colors group-hover:text-[#8e8e93]" />
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 
+                          bg-white/90 dark:bg-[#1c1c1e]/95 
+                          backdrop-blur-xl
+                          text-[#1d1d1f] dark:text-[#f5f5f7] 
+                          text-[11px] rounded-xl 
+                          opacity-0 invisible group-hover:opacity-100 group-hover:visible 
+                          transition-all duration-200 z-50 
+                          shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]
+                          border border-[#e5e5ea] dark:border-[#38383a]">
+            <p className="font-semibold mb-1.5">{helpTitle}</p>
+            <p className="text-[#6e6e73] dark:text-[#8e8e93] leading-relaxed">{helpDesc}</p>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent 
+                            border-t-white/90 dark:border-t-[#1c1c1e]/95"></div>
           </div>
         </div>
       </div>
-      <p className={`text-lg font-semibold text-gray-900 dark:text-white ${valueClass || ''}`}>{value}</p>
-      {subValue && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{subValue}</p>}
+      <p className={`text-lg font-semibold tracking-tight text-[#1d1d1f] dark:text-[#f5f5f7] ${valueClass || ''}`}>{value}</p>
+      {subValue && <p className="text-[10px] text-[#86868b] dark:text-[#8e8e93] mt-1">{subValue}</p>}
     </div>
   );
 }
@@ -68,15 +85,25 @@ function formatPercent(value: number, digits: number = 2, alwaysSign: boolean = 
 }
 
 function getValueClass(value: number): string {
-  return value >= 0 ? 'text-red-500' : 'text-green-500';
+  if (value >= 0) {
+    return 'text-red-500 dark:text-red-400';
+  }
+  return 'text-green-500 dark:text-green-400';
+}
+
+function getValueColor(value: number): string {
+  return value >= 0 
+    ? '#ef4444'
+    : '#22c55e';
 }
 
 function buildScaleTooltip(point: PortfolioScalePoint): string {
+  const color = getValueColor(point.floatingReturnRate);
   return `
     <div style="font-weight: 600; margin-bottom: 4px;">${point.date}</div>
     <div>总资产: <span style="font-weight: 600;">${formatCurrency(point.totalValueCNY, 2)}</span></div>
     <div>累计投入: <span style="font-weight: 600;">${formatCurrency(point.totalCostCNY, 2)}</span></div>
-    <div>浮动收益率: <span style="font-weight: 600; color: ${point.floatingReturnRate >= 0 ? '#ef4444' : '#22c55e'}">${formatPercent(point.floatingReturnRate, 2, true)}</span></div>
+    <div>浮动收益率: <span style="font-weight: 600; color: ${color}">${formatPercent(point.floatingReturnRate, 2, true)}</span></div>
   `;
 }
 
@@ -84,11 +111,12 @@ function buildPerformanceTooltip(point: PortfolioPerformancePoint): string {
   const contributionRow = point.contributionCNY > 0
     ? `<div>当日净流入: <span style="font-weight: 600;">${formatCurrency(point.contributionCNY, 2)}</span></div>`
     : '';
+  const color = getValueColor(point.returnRate);
 
   return `
     <div style="font-weight: 600; margin-bottom: 4px;">${point.date}</div>
     <div>收益净值: <span style="font-weight: 600;">${point.nav.toFixed(2)}</span></div>
-    <div>累计收益率: <span style="font-weight: 600; color: ${point.returnRate >= 0 ? '#ef4444' : '#22c55e'}">${formatPercent(point.returnRate, 2, true)}</span></div>
+    <div>累计收益率: <span style="font-weight: 600; color: ${color}">${formatPercent(point.returnRate, 2, true)}</span></div>
     ${contributionRow}
   `;
 }
@@ -288,17 +316,18 @@ export function NavChart() {
     const colors = {
       line: isDark ? '#60a5fa' : '#2563eb',
       lineArea: isDark
-        ? ['rgba(96, 165, 250, 0.3)', 'rgba(96, 165, 250, 0.02)']
-        : ['rgba(37, 99, 235, 0.15)', 'rgba(37, 99, 235, 0)'],
-      text: isDark ? '#94a3b8' : '#64748b',
-      gridLine: isDark ? 'rgba(148, 163, 184, 0.1)' : '#f1f5f9',
-      axisLine: isDark ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0',
-      tooltipBg: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      tooltipText: isDark ? '#f1f5f9' : '#1e293b',
-      tooltipBorder: isDark ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0',
-      sliderBg: isDark ? 'rgba(148, 163, 184, 0.1)' : '#f1f5f9',
-      sliderFiller: isDark ? 'rgba(96, 165, 250, 0.3)' : 'rgba(37, 99, 235, 0.15)',
-      sliderHandle: isDark ? '#60a5fa' : '#2563eb',
+        ? ['rgba(96, 165, 250, 0.25)', 'rgba(96, 165, 250, 0.02)']
+        : ['rgba(37, 99, 235, 0.2)', 'rgba(37, 99, 235, 0.02)'],
+      text: isDark ? '#86868b' : '#6e6e73',
+      gridLine: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+      axisLine: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+      tooltipBg: isDark ? 'rgba(28, 28, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      tooltipText: isDark ? '#f5f5f7' : '#1d1d1f',
+      tooltipBorder: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+      sliderBg: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+      sliderFiller: isDark ? 'rgba(245, 245, 247, 0.2)' : 'rgba(29, 29, 31, 0.1)',
+      sliderHandle: isDark ? '#f5f5f7' : '#1d1d1f',
+      benchmark: '#86868b',
     };
 
     const xAxisData = activeSeries.map((point) => point.date);
@@ -375,7 +404,7 @@ export function NavChart() {
             data: benchmarkSeries,
             smooth: true,
             symbol: 'none',
-            lineStyle: { width: 1.5, color: '#9ca3af', type: 'solid' },
+            lineStyle: { width: 1.5, color: colors.benchmark, type: 'solid' },
           });
         }
 
@@ -411,8 +440,8 @@ export function NavChart() {
 
   if (assets.length === 0) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-800/30 rounded-2xl p-12 text-center">
-        <p className="text-gray-400 dark:text-gray-500 text-sm">添加资产后将在此显示净值走势</p>
+      <div className="bg-[#f5f5f7] dark:bg-[#1c1c1e]/40 rounded-2xl p-12 text-center">
+        <p className="text-[#86868b] dark:text-[#8e8e93] text-sm">添加资产后将在此显示净值走势</p>
       </div>
     );
   }
@@ -421,25 +450,25 @@ export function NavChart() {
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">
             {chartMode === 'scale' ? '总资产规模' : '收益净值'}
           </h3>
-          <div className="inline-flex rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+          <div className="inline-flex rounded-lg bg-[#f5f5f7] dark:bg-[#1c1c1e] p-0.5">
             <button
               type="button"
               onClick={() => setChartMode('scale')}
-              className={`px-3 py-1 text-xs rounded-full transition-colors ${chartMode === 'scale'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400'}`}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 ${chartMode === 'scale'
+                ? 'bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm'
+                : 'text-[#86868b] dark:text-[#8e8e93] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
             >
               总资产规模
             </button>
             <button
               type="button"
               onClick={() => setChartMode('performance')}
-              className={`px-3 py-1 text-xs rounded-full transition-colors ${chartMode === 'performance'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400'}`}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 ${chartMode === 'performance'
+                ? 'bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm'
+                : 'text-[#86868b] dark:text-[#8e8e93] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]'}`}
             >
               收益净值
             </button>
@@ -449,24 +478,33 @@ export function NavChart() {
               aria-label="基准选择"
               value={selectedBenchmark}
               onChange={(event) => setBenchmark(event.target.value as BenchmarkIndex)}
-              className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-none outline-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg bg-[#f5f5f7] dark:bg-[#1c1c1e] 
+                         text-[#1d1d1f] dark:text-[#f5f5f7] 
+                         border-none outline-none cursor-pointer 
+                         hover:bg-[#e5e5ea] dark:hover:bg-[#2c2c2e] 
+                         transition-colors appearance-none"
+              style={{ backgroundImage: 'none' }}
             >
-              <option value="none">无基准</option>
-              <option value="csi300">沪深300</option>
-              <option value="shanghai">上证指数</option>
+              <option value="none" className="bg-white dark:bg-[#1c1c1e]">无基准</option>
+              <option value="csi300" className="bg-white dark:bg-[#1c1c1e]">沪深300</option>
+              <option value="shanghai" className="bg-white dark:bg-[#1c1c1e]">上证指数</option>
             </select>
           ) : (
-            <p className="text-xs text-gray-400 dark:text-gray-500">基准对比仅在收益净值模式下可用</p>
+            <p className="text-xs text-[#86868b] dark:text-[#8e8e93]">基准对比仅在收益净值模式下可用</p>
           )}
         </div>
         <div className="flex gap-1.5">
           <button
             onClick={handleRefresh}
             disabled={isChartLoading}
-            className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded-full bg-[#f5f5f7] dark:bg-[#1c1c1e] 
+                       text-[#1d1d1f] dark:text-[#f5f5f7] 
+                       hover:bg-[#e5e5ea] dark:hover:bg-[#2c2c2e] 
+                       transition-all duration-200 
+                       disabled:opacity-40 disabled:cursor-not-allowed"
             title="刷新数据"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isChartLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isChartLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -474,9 +512,13 @@ export function NavChart() {
       <div className="relative h-72 w-full">
         <div ref={chartRef} className="h-72 w-full" />
         {isChartLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 dark:border-gray-600 border-t-gray-900 dark:border-t-white mb-2"></div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="absolute inset-0 flex flex-col items-center justify-center 
+                          bg-white/60 dark:bg-[#1c1c1e]/60 
+                          backdrop-blur-sm z-10">
+            <div className="animate-spin rounded-full h-8 w-8 
+                            border-2 border-[#e5e5ea] dark:border-[#38383a] 
+                            border-t-[#1d1d1f] dark:border-t-[#f5f5f7] mb-3"></div>
+            <p className="text-xs text-[#86868b] dark:text-[#8e8e93]">
               {isSeriesLoading ? '正在计算组合走势...' : '正在加载基准数据...'}
             </p>
           </div>
@@ -491,12 +533,14 @@ export function NavChart() {
               value={formatCurrency(scaleMetrics.latestTotalValue)}
               helpTitle="最新总资产"
               helpDesc="当前投资组合的总市值，基于最新价格与对应日期汇率计算"
+              index={0}
             />
             <MetricCard
               label="总投入成本"
               value={formatCurrency(scaleMetrics.totalCost)}
               helpTitle="总投入成本"
               helpDesc="当前持仓资产累计投入成本，按各自买入日汇率换算为人民币"
+              index={1}
             />
             <MetricCard
               label="浮动收益"
@@ -504,6 +548,7 @@ export function NavChart() {
               valueClass={getValueClass(scaleMetrics.floatingPnL)}
               helpTitle="浮动收益"
               helpDesc="最新总资产减去总投入成本后的未实现盈亏"
+              index={2}
             />
           </div>
           <div className={METRIC_GRID_CLASS}>
@@ -513,18 +558,21 @@ export function NavChart() {
               valueClass={getValueClass(scaleMetrics.floatingReturnRate)}
               helpTitle="浮动收益率"
               helpDesc="浮动收益除以总投入成本，反映当前持仓整体盈亏比例"
+              index={3}
             />
             <MetricCard
               label="持仓天数"
               value={`${scaleMetrics.holdingDays}天`}
               helpTitle="持仓天数"
               helpDesc="从最早买入资产至今的持仓天数"
+              index={4}
             />
             <MetricCard
               label="资产数量"
               value={`${scaleMetrics.assetCount}项`}
               helpTitle="资产数量"
               helpDesc="当前组合中纳入统计的资产条目数量"
+              index={5}
             />
           </div>
         </div>
@@ -538,6 +586,7 @@ export function NavChart() {
               value={performanceMetrics.currentNav.toFixed(2)}
               helpTitle="当前净值"
               helpDesc="以首个可投资日为 100 的现金流调整后组合净值"
+              index={0}
             />
             <MetricCard
               label="累计收益"
@@ -545,13 +594,15 @@ export function NavChart() {
               valueClass={getValueClass(performanceMetrics.totalReturn)}
               helpTitle="累计收益"
               helpDesc="基于收益净值序列计算的累计收益率，不受后续加仓规模扭曲"
+              index={1}
             />
             <MetricCard
               label="最大回撤"
               value={formatPercent(performanceMetrics.maxDrawdown, 2)}
-              valueClass="text-green-500"
+              valueClass="text-red-500"
               helpTitle="最大回撤"
               helpDesc="收益净值从阶段高点回落到低点的最大跌幅，衡量回撤风险"
+              index={2}
             />
           </div>
 
@@ -563,6 +614,7 @@ export function NavChart() {
                 valueClass={getValueClass(benchmarkComparison.benchmarkReturn)}
                 helpTitle="基准收益"
                 helpDesc={`${api.benchmark.configs[selectedBenchmark].name}在同一收益净值周期内的累计收益率`}
+                index={3}
               />
               <MetricCard
                 label="超额收益 (Alpha)"
@@ -570,6 +622,7 @@ export function NavChart() {
                 valueClass={getValueClass(benchmarkComparison.alpha)}
                 helpTitle="超额收益"
                 helpDesc="组合收益减去基准收益，正值表示跑赢基准"
+                index={4}
               />
               <MetricCard
                 label="Beta收益"
@@ -578,6 +631,7 @@ export function NavChart() {
                 subValue={`β=${benchmarkComparison.beta.toFixed(2)}`}
                 helpTitle="Beta收益"
                 helpDesc="基于组合Beta系数计算的系统性风险收益：Beta收益 = Beta × 基准收益。子值显示组合的Beta系数，β>1表示波动大于基准，β<1表示波动小于基准。"
+                index={5}
               />
             </div>
           )}
@@ -589,6 +643,7 @@ export function NavChart() {
               valueClass={getValueClass(performanceMetrics.annualizedReturn)}
               helpTitle="年化收益率"
               helpDesc="将累计收益按持有时间年化后的收益率，便于不同周期比较"
+              index={6}
             />
             <MetricCard
               label="持仓天数"
@@ -616,18 +671,21 @@ export function NavChart() {
               value={formatPercent(performanceMetrics.volatility, 2)}
               helpTitle="波动率"
               helpDesc="收益净值日收益率的年化标准差，衡量波动程度"
+              index={9}
             />
             <MetricCard
               label="夏普比率"
               value={performanceMetrics.sharpeRatio.toFixed(2)}
               helpTitle="夏普比率"
               helpDesc="(年化收益率 - 无风险利率) / 波动率，衡量风险调整后收益"
+              index={10}
             />
             <MetricCard
               label="卡玛比率"
               value={performanceMetrics.calmarRatio.toFixed(2)}
               helpTitle="卡玛比率"
               helpDesc="年化收益率 / 最大回撤，衡量收益对最大回撤风险的补偿能力"
+              index={11}
             />
           </div>
         </div>

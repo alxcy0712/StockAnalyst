@@ -15,13 +15,19 @@ const styles = {
   info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200',
 };
 
+const iconStyles = {
+  error: 'text-red-500 dark:text-red-400',
+  warning: 'text-amber-500 dark:text-amber-400',
+  info: 'text-blue-500 dark:text-blue-400',
+};
+
 export function GlobalToast() {
   const { errors, removeError } = useErrorStore();
 
   if (errors.length === 0) return null;
 
   return createPortal(
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex flex-col gap-2 pointer-events-none w-full max-w-lg px-4">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex flex-col gap-3 pointer-events-none w-full max-w-md px-4">
       <AnimatePresence mode="popLayout">
         {errors.map((error) => {
           const Icon = icons[error.type];
@@ -29,20 +35,23 @@ export function GlobalToast() {
             <motion.div
               key={error.id}
               layout
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className={`pointer-events-auto px-4 py-3 rounded-lg border shadow-lg backdrop-blur-sm ${styles[error.type]}`}
+              initial={{ opacity: 0, y: -24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{
+                duration: 0.24,
+                ease: [0.25, 0.1, 0.25, 1.0],
+              }}
+              className={`pointer-events-auto px-5 py-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${styles[error.type]}`}
             >
-              <div className="flex items-start gap-3">
-                <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-4">
+                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconStyles[error.type]}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{error.message}</p>
+                  <p className="text-sm font-medium leading-relaxed">{error.message}</p>
                 </div>
                 <button
                   onClick={() => removeError(error.id)}
-                  className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded transition-colors flex-shrink-0"
+                  className="p-1.5 -mr-2 -mt-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors flex-shrink-0 opacity-60 hover:opacity-100"
                 >
                   <X className="w-4 h-4" />
                 </button>

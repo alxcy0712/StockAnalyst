@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, HelpCircle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import dayjs from 'dayjs';
@@ -21,7 +22,9 @@ const ASSET_TYPES: { value: AssetType; label: string }[] = [
   { value: 'fund', label: '基金' },
 ];
 
-
+// Apple 缓动函数 [0.4, 0, 0.2, 1] - easeOut
+const appleEasing: [number, number, number, number] = [0.4, 0, 0.2, 1];
+const appleEasingExit: [number, number, number, number] = [0.4, 0, 1, 1];
 
 const CODE_EXAMPLES: Record<AssetType, { placeholder: string; example: string; description: string }> = {
   a_stock: {
@@ -39,6 +42,70 @@ const CODE_EXAMPLES: Record<AssetType, { placeholder: string; example: string; d
     example: '易方达蓝筹：005827，中欧医疗：003095，招商白酒：161725',
     description: '基金代码为6位数字',
   },
+};
+
+const modalOverlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { duration: 0.2, ease: appleEasing }
+  },
+  exit: { 
+    opacity: 0,
+    transition: { duration: 0.15, ease: appleEasingExit }
+  }
+};
+
+const modalContentVariants = {
+  hidden: { 
+    opacity: 0, 
+    scale: 0.98,
+    y: 10
+  },
+  visible: { 
+    opacity: 1, 
+    scale: 1,
+    y: 0,
+    transition: { 
+      duration: 0.32, 
+      ease: appleEasing
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    scale: 0.98,
+    y: 10,
+    transition: { 
+      duration: 0.2, 
+      ease: appleEasingExit
+    }
+  }
+};
+
+const helpPanelVariants = {
+  hidden: { 
+    opacity: 0, 
+    height: 0,
+    marginTop: 0
+  },
+  visible: { 
+    opacity: 1, 
+    height: 'auto',
+    marginTop: 8,
+    transition: { 
+      duration: 0.25, 
+      ease: appleEasing
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    height: 0,
+    marginTop: 0,
+    transition: { 
+      duration: 0.2, 
+      ease: appleEasingExit
+    }
+  }
 };
 
 export function AssetForm() {
@@ -89,7 +156,6 @@ export function AssetForm() {
       return null;
     },
   });
-  const [retryCount, setRetryCount] = useState(0);
   const [formData, setFormData] = useState({
     type: 'a_stock' as AssetType,
     code: '',
@@ -116,7 +182,7 @@ export function AssetForm() {
       clearAll();
       setShowHelp(false);
     }
-  }, [isOpen]);
+  }, [isOpen, clearAll]);
 
   const fetchClosingPrice = useCallback(async () => {
     // 现在不强制要求 useClosingPrice，点击按钮时尽量尝试获取价格
@@ -173,7 +239,7 @@ export function AssetForm() {
     } finally {
       setIsLoadingPrice(false);
     }
-  }, [formData.useClosingPrice, formData.code, formData.purchaseDate, formData.type, addError, clearFieldError]);
+  }, [formData.code, formData.purchaseDate, formData.type, addError, clearFieldError]);
 
   const fetchFundNavOnDate = useCallback(async () => {
     if (formData.type !== 'fund' || !formData.code || !formData.purchaseDate) return;
@@ -216,7 +282,7 @@ export function AssetForm() {
       }
       fetchClosingPrice();
     }
-  }, [formData.useClosingPrice, formData.code, formData.purchaseDate, retryCount]);
+  }, [formData.useClosingPrice, formData.code, formData.purchaseDate, formData.type, addError, fetchClosingPrice]);
 
   useEffect(() => {
     const recognizeAssetName = async () => {
@@ -268,7 +334,7 @@ export function AssetForm() {
 
     const timer = setTimeout(recognizeAssetName, 500);
     return () => clearTimeout(timer);
-  }, [formData.code, formData.type]);
+  }, [formData.code, formData.type, formData.name]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,211 +380,256 @@ export function AssetForm() {
       useClosingPrice: true,
     });
     clearAll();
-    setRetryCount(0);
     setIsOpen(false);
   };
 
   const currentExample = CODE_EXAMPLES[formData.type];
   const isFund = formData.type === 'fund';
 
-  if (!isOpen) {
-    return (
-      <button
+  // 输入框通用样式
+  const inputBaseClass = `w-full px-3 py-2 bg-white dark:bg-[#1c1c1e] border border-[#d2d2d7] dark:border-[#424245] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-[#1d1d1f] dark:text-white placeholder-[#86868b] dark:placeholder-[#8e8e93] transition-all duration-200`;
+  
+  // 选择框样式
+  const selectBaseClass = `w-full px-3 py-2 bg-white dark:bg-[#1c1c1e] border border-[#d2d2d7] dark:border-[#424245] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-[#1d1d1f] dark:text-white transition-all duration-200`;
+
+  return (
+    <>
+      {/* Apple 风格触发按钮 */}
+      <motion.button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-full transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-full transition-all duration-200 shadow-sm"
       >
         <Plus size={16} strokeWidth={2.5} />
         <span>添加资产</span>
-      </button>
-    );
-  }
+      </motion.button>
 
-  return createPortal(
-    <div className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => setIsOpen(false)}>
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">添加资产</h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">资产类型</label>
-            <select
-              value={formData.type}
-              onChange={(e) => {
-                const newType = e.target.value as AssetType;
-                const newCurrency: Currency = newType === 'hk_stock' ? 'HKD' : 'CNY';
-                setFormData({ 
-                  ...formData, 
-                  type: newType, 
-                  code: '', 
-                  name: '', 
-                  currency: newCurrency,
-                  useClosingPrice: false,
-                  purchasePrice: '',
-                });
-                clearAll();
-              }}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
+      {/* 弹窗 Portal */}
+      {isOpen && createPortal(
+        <AnimatePresence>
+          <motion.div
+            className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+            variants={modalOverlayVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            onClick={() => setIsOpen(false)}
+          >
+            <motion.div
+              className="bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto border border-[#d2d2d7]/50 dark:border-[#424245]/50"
+              variants={modalContentVariants}
+              onClick={e => e.stopPropagation()}
             >
-              {ASSET_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              <h2 className="text-xl font-semibold mb-5 text-[#1d1d1f] dark:text-white">添加资产</h2>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 资产类型 */}
+                <div>
+                  <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">资产类型</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => {
+                      const newType = e.target.value as AssetType;
+                      const newCurrency: Currency = newType === 'hk_stock' ? 'HKD' : 'CNY';
+                      setFormData({ 
+                        ...formData, 
+                        type: newType, 
+                        code: '', 
+                        name: '', 
+                        currency: newCurrency,
+                        useClosingPrice: false,
+                        purchasePrice: '',
+                      });
+                      clearAll();
+                    }}
+                    className={selectBaseClass}
+                  >
+                    {ASSET_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">资产代码</label>
-              <button
-                type="button"
-                onClick={() => setShowHelp(!showHelp)}
-                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 transition-colors"
-              >
-                <HelpCircle size={16} />
-              </button>
-            </div>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => {
-                setFormData({ ...formData, code: e.target.value, name: '', purchasePrice: '' });
-                codeError.clearError();
-              }}
-              placeholder={currentExample.placeholder}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-            />
-            
-            {showHelp && (
-              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-300 mb-1">
-                  <strong>格式说明：</strong>{currentExample.description}
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  <strong>示例：</strong>{currentExample.example}
-                </p>
-              </div>
-            )}
-            
-            {!showHelp && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {currentExample.description} · 
-                <button
-                  type="button"
-                  onClick={() => setShowHelp(true)}
-                  className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
-                >
-                  查看更多示例
-                </button>
-              </p>
-            )}
-          </div>
+                {/* 资产代码 */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6]">资产代码</label>
+                    <motion.button
+                      type="button"
+                      onClick={() => setShowHelp(!showHelp)}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="text-[#86868b] dark:text-[#8e8e93] hover:text-[#424245] dark:hover:text-[#a1a1a6] transition-colors"
+                    >
+                      <HelpCircle size={16} />
+                    </motion.button>
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => {
+                      setFormData({ ...formData, code: e.target.value, name: '', purchasePrice: '' });
+                      codeError.clearError();
+                    }}
+                    placeholder={currentExample.placeholder}
+                    className={inputBaseClass}
+                  />
+                  
+                  {/* 帮助信息面板 */}
+                  <AnimatePresence>
+                    {showHelp && (
+                      <motion.div 
+                        className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg overflow-hidden"
+                        variants={helpPanelVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                      >
+                        <p className="text-sm text-[#1d1d1f] dark:text-white mb-1">
+                          <strong>格式说明：</strong>{currentExample.description}
+                        </p>
+                        <p className="text-xs text-[#424245] dark:text-[#a1a1a6]">
+                          <strong>示例：</strong>{currentExample.example}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  {!showHelp && (
+                    <p className="mt-1.5 text-xs text-[#86868b] dark:text-[#8e8e93]">
+                      {currentExample.description} · 
+                      <button
+                        type="button"
+                        onClick={() => setShowHelp(true)}
+                        className="text-[#424245] dark:text-[#a1a1a6] hover:underline ml-1 transition-colors"
+                      >
+                        查看更多示例
+                      </button>
+                    </p>
+                  )}
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              资产名称
-              {isLoadingName && (
-                <span className="ml-2 inline-flex items-center text-xs text-slate-400">
-                  <Loader2 size={12} className="animate-spin mr-1" />
-                  识别中...
-                </span>
-              )}
-              {formData.name && !isLoadingName && (
-                <span className="ml-2 text-xs text-green-600 dark:text-green-400">✓ 已自动识别</span>
-              )}
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="输入代码后自动识别"
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-            />
-          </div>
+                {/* 资产名称 */}
+                <div>
+                  <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">
+                    资产名称
+                    {isLoadingName && (
+                      <span className="ml-2 inline-flex items-center text-xs text-[#86868b] dark:text-[#8e8e93]">
+                        <Loader2 size={12} className="animate-spin mr-1" />
+                        识别中...
+                      </span>
+                    )}
+                    {formData.name && !isLoadingName && (
+                      <span className="ml-2 text-xs text-[#34c759]">✓ 已自动识别</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="输入代码后自动识别"
+                    className={inputBaseClass}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">购入日期</label>
-            <DatePicker
-              selected={formData.purchaseDate ? dayjs(formData.purchaseDate).toDate() : null}
-              onChange={(date: Date | null) => {
-                const newDate = date ? dayjs(date).format('YYYY-MM-DD') : '';
-                setFormData({ ...formData, purchaseDate: newDate, purchasePrice: '' });
-                clearFieldError('purchasePrice');
-              }}
-              maxDate={new Date()}
-              minDate={new Date('1990-01-01')}
-              dateFormat="yyyy-MM-dd"
-              showYearDropdown
-              scrollableYearDropdown
-              yearDropdownItemNumber={30}
-              placeholderText="选择日期"
-              locale="zh-CN"
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
-            />
-          </div>
+                {/* 购入日期 */}
+                <div>
+                  <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">购入日期</label>
+                  <DatePicker
+                    selected={formData.purchaseDate ? dayjs(formData.purchaseDate).toDate() : null}
+                    onChange={(date: Date | null) => {
+                      const newDate = date ? dayjs(date).format('YYYY-MM-DD') : '';
+                      setFormData({ ...formData, purchaseDate: newDate, purchasePrice: '' });
+                      clearFieldError('purchasePrice');
+                    }}
+                    maxDate={new Date()}
+                    minDate={new Date('1990-01-01')}
+                    dateFormat="yyyy-MM-dd"
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={30}
+                    placeholderText="选择日期"
+                    locale="zh-CN"
+                    className={inputBaseClass}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">购入单价</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={formData.purchasePrice}
-                  onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
-                  placeholder="请输入购入单价"
-               className={`w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 rounded-lg focus:outline-none focus:ring-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 ${getInputErrorClass(priceError.hasError)}`}
-            />
-                {isLoadingPrice && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center text-xs text-slate-400">
-                    <Loader2 size={12} className="animate-spin mr-1" />
-                    获取中…
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={isFund ? fetchFundNavOnDate : fetchClosingPrice}
-                disabled={!formData.code || !formData.purchaseDate || isLoadingPrice}
-                className="py-2 px-4 rounded-lg border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                {isFund ? '获取净值' : '获取收盘价'}
-              </button>
-            </div>
+                {/* 购入单价 */}
+                <div>
+                  <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">购入单价</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={formData.purchasePrice}
+                        onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+                        placeholder="请输入购入单价"
+                        className={`${inputBaseClass} ${getInputErrorClass(priceError.hasError)}`}
+                      />
+                      {isLoadingPrice && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center text-xs text-[#86868b] dark:text-[#8e8e93]">
+                          <Loader2 size={12} className="animate-spin mr-1" />
+                          获取中…
+                        </span>
+                      )}
+                    </div>
+                    <motion.button
+                      type="button"
+                      onClick={isFund ? fetchFundNavOnDate : fetchClosingPrice}
+                      disabled={!formData.code || !formData.purchaseDate || isLoadingPrice}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="py-2 px-4 rounded-lg border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+                    >
+                      {isFund ? '获取净值' : '获取收盘价'}
+                    </motion.button>
+                  </div>
+                </div>
 
-          </div>
+                {/* 数量 */}
+                <div>
+                  <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">数量</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    placeholder="0.00"
+                    className={`${inputBaseClass} ${getInputErrorClass(quantityError.hasError)}`}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">数量</label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-              placeholder="0.00"
-              className={`w-full px-3 py-2 bg-white dark:bg-slate-700 border-2 rounded-lg focus:outline-none focus:ring-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 ${getInputErrorClass(quantityError.hasError)}`}
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="flex-1 py-2 px-4 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={!formData.purchasePrice || isLoadingPrice}
-              className="flex-1 py-2 px-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              确认添加
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
+                {/* 按钮组 */}
+                <div className="flex gap-3 pt-5">
+                  <motion.button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 py-2.5 px-4 border border-[#d2d2d7] dark:border-[#424245] rounded-lg hover:bg-[#f5f5f7] dark:hover:bg-[#2c2c2e] transition-colors text-[#1d1d1f] dark:text-white font-medium"
+                  >
+                    取消
+                  </motion.button>
+                  <motion.button
+                    type="submit"
+                    disabled={!formData.purchasePrice || isLoadingPrice}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 py-2.5 px-4 bg-[#1d1d1f] hover:bg-[#2a2a2e] dark:bg-white dark:hover:bg-gray-100 text-white dark:text-[#1d1d1f] rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                  >
+                    确认添加
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   );
 }
