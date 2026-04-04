@@ -3,12 +3,15 @@ import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetAllocationChart } from './components/AssetAllocationChart';
 import { NavChart } from './components/NavChart';
-import { TrendingUp, BarChart3, Database, Clock, Sun, Moon, Monitor } from 'lucide-react';
+import { TrendingUp, BarChart3, Database, Clock, Sun, Moon, Monitor, RefreshCw } from 'lucide-react';
 import { useThemeStore } from './stores/themeStore';
+import { useExchangeStore } from './stores/exchangeStore';
 import { GlobalToast } from './components/GlobalToast';
+import { getCurrentExchangeRate } from './api/adapters/exchange';
 
 function App() {
   const { theme, setTheme, isDark } = useThemeStore();
+  const { rates, updateTime, isLoading, setRates, setLoading } = useExchangeStore();
 
   useEffect(() => {
     if (isDark) {
@@ -17,6 +20,22 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  const fetchRates = async () => {
+    setLoading(true);
+    try {
+      const data = await getCurrentExchangeRate();
+      setRates(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRates();
+    const interval = setInterval(fetchRates, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -45,7 +64,25 @@ function App() {
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide uppercase">Portfolio Backtesting</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {rates && (
+                <div className="hidden sm:flex items-center gap-2 px-2 py-1 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-[11px]">
+                  <span className="text-gray-600 dark:text-gray-300">1HKD={(1/rates.CNY_HKD).toFixed(4)}CNY</span>
+                  <span className="text-gray-400">|</span>
+                  <span className="text-gray-600 dark:text-gray-300">1USD={(1/rates.CNY_USD).toFixed(4)}CNY</span>
+                  {updateTime && (
+                    <span className="text-gray-400 dark:text-gray-500 ml-1">({updateTime} · 30分钟刷新)</span>
+                  )}
+                  <button
+                    onClick={fetchRates}
+                    disabled={isLoading}
+                    className="ml-1 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    title="刷新汇率"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-gray-400 ${isLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              )}
               <button
                 onClick={cycleTheme}
                 className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
@@ -105,7 +142,9 @@ function App() {
               <span>A股/港股：东方财富</span>
               <span>基金净值：天天基金</span>
               <span>历史净值：东方财富</span>
-              <span>汇率：东方财富</span>
+              {rates && (
+                <span>汇率：1HKD={(1/rates.CNY_HKD).toFixed(4)}CNY / 1USD={(1/rates.CNY_USD).toFixed(4)}CNY {updateTime && `(${updateTime} · 30分钟刷新)`}</span>
+              )}
             </div>
           </div>
         </div>
