@@ -9,28 +9,30 @@ const EASTMONEY_KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/g
  * @param period 周期 day/week/month
  * @param startDate 开始日期 YYYYMMDD
  * @param endDate 结束日期 YYYYMMDD
+ * @param fqt 复权类型：0=不复权(除权)，1=前复权，2=后复权，默认为1(前复权)
  */
 export async function getAStockKLineEastmoney(
   code: string,
   period: 'day' | 'week' | 'month' = 'day',
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  fqt: 0 | 1 | 2 = 1
 ): Promise<KLineData[]> {
   try {
     // 市场代码：0=深圳，1=上海
     const market = code.startsWith('6') ? '1' : '0';
     const secid = `${market}.${code}`;
-    
+
     // 周期映射
     const periodMap = { day: '101', week: '102', month: '103' };
     const klt = periodMap[period];
-    
+
     // 日期范围
     const today = new Date();
     const defaultEndDate = endDate || today.toISOString().slice(0, 10).replace(/-/g, '');
     const defaultStartDate = startDate || '20200101';
-    
-    const url = `${EASTMONEY_KLINE_URL}?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=1&beg=${defaultStartDate}&end=${defaultEndDate}&ut=fa5fd1943c7b386f172d6893dbfba10b&_=${Date.now()}`;
+
+    const url = `${EASTMONEY_KLINE_URL}?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=${fqt}&beg=${defaultStartDate}&end=${defaultEndDate}&ut=fa5fd1943c7b386f172d6893dbfba10b&_=${Date.now()}`;
     
     const response = await fetch(url);
     const data = await response.json();
@@ -61,25 +63,27 @@ export async function getAStockKLineEastmoney(
  * @param period 周期 day/week/month
  * @param startDate 开始日期 YYYYMMDD
  * @param endDate 结束日期 YYYYMMDD
+ * @param fqt 复权类型：0=不复权(除权)，1=前复权，2=后复权，默认为1(前复权)
  */
 export async function getHKStockKLineEastmoney(
   code: string,
   period: 'day' | 'week' | 'month' = 'day',
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  fqt: 0 | 1 | 2 = 1
 ): Promise<KLineData[]> {
   try {
     // 港股：市场代码116
     const secid = `116.${code}`;
-    
+
     const periodMap = { day: '101', week: '102', month: '103' };
     const klt = periodMap[period];
-    
+
     const today = new Date();
     const defaultEndDate = endDate || today.toISOString().slice(0, 10).replace(/-/g, '');
     const defaultStartDate = startDate || '20200101';
-    
-    const url = `${EASTMONEY_KLINE_URL}?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=1&beg=${defaultStartDate}&end=${defaultEndDate}&ut=fa5fd1943c7b386f172d6893dbfba10b&_=${Date.now()}`;
+
+    const url = `${EASTMONEY_KLINE_URL}?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=${fqt}&beg=${defaultStartDate}&end=${defaultEndDate}&ut=fa5fd1943c7b386f172d6893dbfba10b&_=${Date.now()}`;
     
     const response = await fetch(url);
     const data = await response.json();

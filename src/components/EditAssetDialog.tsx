@@ -5,7 +5,7 @@ import { useAssetStore } from '../stores/assetStore';
 import { useErrorStore } from '../stores/errorStore';
 import { useFormError, getInputErrorClass } from '../hooks/useFormError';
 import { api } from '../api';
-import { getClosingPriceWithFallback } from '../utils/priceFallback';
+import { getDualClosingPriceWithFallback, type DualPriceResult } from '../utils/priceFallback';
 import type { Asset, Currency } from '../types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -60,6 +60,18 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
   const { addError, clearAll, clearFieldError } = useErrorStore();
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 
+  // 新增：手动输入时的价格类型选择
+  const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>(
+    asset?.priceInputType || 'adjusted'
+  );
+
+  // 新增：获取收盘价时的双价格数据
+  const [dualPrice, setDualPrice] = useState<{
+    data: DualPriceResult | null;
+    isLoading: boolean;
+    selectedType: 'raw' | 'adjusted' | null;
+  }>({ data: null, isLoading: false, selectedType: null });
+
   // 表单字段错误管理
   const priceError = useFormError({
     field: 'editPurchasePrice',
@@ -101,6 +113,8 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
         currency: asset.currency,
         useClosingPrice: asset.useClosingPrice ?? false,
       });
+      setPriceInputMode(asset.priceInputType || 'adjusted');
+      setDualPrice({ data: null, isLoading: false, selectedType: null });
     }
   }, [asset]);
 
@@ -127,105 +141,114 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     };
   }, [isOpen]);
 
-  // 获取收盘价
-  useEffect(() => {
-    const fetchClosingPrice = async () => {
-      if (!asset || !formData.useClosingPrice || !asset.code || !formData.purchaseDate) return;
-
-      // 校验代码格式，格式不对直接返回，不调用API
-      const code = asset.code.trim();
-      if (asset.type === 'a_stock' && !/^\d{6}$/.test(code)) {
-        addError('A股代码应为6位数字', 'error', 'editPurchasePrice', 0);
-        return;
-      }
-      if (asset.type === 'hk_stock' && /^\d{5}$/.test(code)) {
-        addError('港股代码应为5位数字', 'error', 'editPurchasePrice', 0);
-        return;
-      }
-      if (asset.type === 'fund' && !/^\d{6}$/.test(code)) {
-        addError('基金代码应为6位数字', 'error', 'editPurchasePrice', 0);
-        return;
-      }
-
-      setIsLoadingPrice(true);
-      clearFieldError('editPurchasePrice');
-      try {
-        if (asset.type === 'fund') {
-          // 基金使用原有的净值查询逻辑，也加上向前查找
-          const fundHistory = await api.fund.getNavHistory(asset.code, formData.purchaseDate, formData.purchaseDate);
-          const targetDate = formData.purchaseDate.replace(/-/g, '');
-          const targetItem = fundHistory.find((item: { date: string; unitNav: number; accumulatedNav: number }) => {
-            const itemDate = item.date.replace(/-/g, '');
-            return itemDate === targetDate;
-          });
-          if (targetItem) {
-            setFormData(prev => ({ ...prev, purchasePrice: targetItem.unitNav.toString() }));
-            (window as any).__fundAccumulatedNav = targetItem.accumulatedNav;
-            clearFieldError('editPurchasePrice');
-          } else if (fundHistory.length > 0) {
-            // 未找到目标日期，使用最近的一个净值
-            const nearestItem = fundHistory[0];
-            setFormData(prev => ({ ...prev, purchasePrice: nearestItem.unitNav.toString() }));
-            (window as any).__fundAccumulatedNav = nearestItem.accumulatedNav;
-            clearFieldError('editPurchasePrice');
-            addError(`${formData.purchaseDate}为休假日，使用前一交易日净值：${nearestItem.unitNav.toFixed(4)}`, 'info', undefined, 5000);
-          } else {
-            addError('未获取到该日期净值数据', 'error', 'editPurchasePrice', 0);
-          }
-        } else {
-          // 股票使用带fallback的函数
-          const result = await getClosingPriceWithFallback(
-            asset.code,
-            asset.type as 'a_stock' | 'hk_stock',
-            formData.purchaseDate,
-            7
-          );
-          
-          if (result.price !== null) {
-            setFormData(prev => ({ ...prev, purchasePrice: result.price!.toString() }));
-            clearFieldError('editPurchasePrice');
-            
-            // 如果是休假日，显示提示信息
-            if (result.isHoliday && result.message) {
-              addError(result.message, 'info', undefined, 5000);
-            }
-          } else {
-            addError(result.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice', 0);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch closing price:', error);
-        addError('获取价格失败，请手动输入', 'error', 'editPurchasePrice', 0);
-      } finally {
-        setIsLoadingPrice(false);
-      }
-    };
-
-    if (formData.useClosingPrice && formData.purchaseDate) {
-      fetchClosingPrice();
-    }
-  }, [formData.useClosingPrice, formData.purchaseDate, asset, addError, clearFieldError]);
-
   const handleClose = () => {
     clearAll();
+    setDualPrice({ data: null, isLoading: false, selectedType: null });
     onClose();
+  };
+
+  // 手动获取收盘价（仅股票）
+  const fetchClosingPrice = async () => {
+    if (!asset || !asset.code || !formData.purchaseDate) return;
+
+    const code = asset.code.trim();
+    if (asset.type === 'a_stock' && !/^\d{6}$/.test(code)) {
+      addError('A股代码应为6位数字', 'error', 'editPurchasePrice', 0);
+      return;
+    }
+    if (asset.type === 'hk_stock' && !/^\d{5}$/.test(code)) {
+      addError('港股代码应为5位数字', 'error', 'editPurchasePrice', 0);
+      return;
+    }
+
+    setIsLoadingPrice(true);
+    setDualPrice(prev => ({ ...prev, isLoading: true }));
+    clearFieldError('editPurchasePrice');
+
+    try {
+      const result = await getDualClosingPriceWithFallback(
+        asset.code,
+        asset.type as 'a_stock' | 'hk_stock',
+        formData.purchaseDate,
+        7
+      );
+
+      setDualPrice({
+        data: result,
+        isLoading: false,
+        selectedType: 'adjusted'
+      });
+
+      if (result.preAdjusted.price !== null) {
+        setFormData(prev => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
+        clearFieldError('editPurchasePrice');
+
+        if (result.preAdjusted.isHoliday && result.preAdjusted.message) {
+          addError(result.preAdjusted.message, 'info', undefined, 5000);
+        }
+      } else {
+        addError(result.preAdjusted.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice', 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch closing price:', error);
+      addError('获取价格失败，请手动输入', 'error', 'editPurchasePrice', 0);
+    } finally {
+      setIsLoadingPrice(false);
+    }
+  };
+
+  const fetchFundNav = async () => {
+    if (!asset?.code || !formData.purchaseDate) return;
+    const code = asset.code.trim();
+    if (!/^\d{6}$/.test(code)) {
+      addError('基金代码应为6位数字', 'error', 'editPurchasePrice', 0);
+      return;
+    }
+    setIsLoadingPrice(true);
+    clearFieldError('editPurchasePrice');
+    try {
+      const fundHistory = await api.fund.getNavHistory(code, formData.purchaseDate, formData.purchaseDate);
+      const targetDate = formData.purchaseDate.replace(/-/g, '');
+      const targetItem = fundHistory.find((item: { date: string; unitNav: number; accumulatedNav: number }) => {
+        const itemDate = item.date.replace(/-/g, '');
+        return itemDate === targetDate;
+      });
+      if (targetItem) {
+        setFormData(prev => ({ ...prev, purchasePrice: targetItem.unitNav.toString() }));
+        (window as any).__fundAccumulatedNav = targetItem.accumulatedNav;
+        clearFieldError('editPurchasePrice');
+      } else if (fundHistory.length > 0) {
+        const nearestItem = fundHistory[0];
+        setFormData(prev => ({ ...prev, purchasePrice: nearestItem.unitNav.toString() }));
+        (window as any).__fundAccumulatedNav = nearestItem.accumulatedNav;
+        clearFieldError('editPurchasePrice');
+        addError(`${formData.purchaseDate}为休假日，使用前一交易日净值：${nearestItem.unitNav.toFixed(4)}`, 'info', undefined, 5000);
+      } else {
+        addError('未获取到该日期净值数据', 'error', 'editPurchasePrice', 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch fund NAV:', error);
+      addError('获取净值失败，请手动输入', 'error', 'editPurchasePrice', 0);
+    } finally {
+      setIsLoadingPrice(false);
+    }
   };
 
   const handleSave = () => {
     if (!asset) return;
-    
-    // 验证所有字段
+
     const isPriceValid = priceError.validateField(formData.purchasePrice);
     const isQuantityValid = quantityError.validateField(formData.quantity);
-    
+
     if (!isPriceValid || !isQuantityValid) {
       addError('请检查表单中的错误信息', 'error');
       return;
     }
-    
+
     const isFund = asset.type === 'fund';
     const accumulatedNav = isFund ? (window as any).__fundAccumulatedNav : undefined;
-    
+    const isStock = asset.type === 'a_stock' || asset.type === 'hk_stock';
+
     updateAsset(asset.id, {
       name: formData.name,
       purchaseDate: formData.purchaseDate,
@@ -234,9 +257,23 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
       quantity: parseFloat(formData.quantity),
       currency: formData.currency,
       useClosingPrice: formData.useClosingPrice,
+      priceInputType: isStock ? (dualPrice.data ? 'adjusted' : priceInputMode) : undefined,
+      purchasePriceRaw: isStock && dualPrice.data?.raw.price !== null ? dualPrice.data?.raw.price : undefined,
+      purchasePriceAdjusted: isStock && dualPrice.data?.preAdjusted.price !== null ? dualPrice.data?.preAdjusted.price : undefined,
     });
     delete (window as any).__fundAccumulatedNav;
     handleClose();
+  };
+
+  const isNegativePrice = (price: number | null): boolean => {
+    if (price === null) return false;
+    return price <= 0 || price < 0.01;
+  };
+
+  const formatPrice = (price: number | null): string => {
+    if (price === null) return '--';
+    if (price <= 0) return '≤ 0';
+    return price.toFixed(2);
   };
 
   if (!asset) return null;
@@ -316,43 +353,52 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                 />
               </div>
 
-              {/* 购入单价选择（非基金） */}
-              {!isFund && (
-                <div>
-                  <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-2">购入单价来源</label>
-                  {/* 分段控制器 */}
-                  <div className="flex p-1 bg-[#f2f2f4] dark:bg-[#2c2c2e] rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, useClosingPrice: false, purchasePrice: '' })}
-                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        !formData.useClosingPrice
-                          ? 'bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] shadow-sm'
-                          : 'bg-transparent text-[#86868b] hover:text-[#424245] dark:hover:text-[#a1a1a6]'
-                      }`}
-                    >
-                      手动输入
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, useClosingPrice: true, purchasePrice: '' })}
-                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        formData.useClosingPrice
-                          ? 'bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] shadow-sm'
-                          : 'bg-transparent text-[#86868b] hover:text-[#424245] dark:hover:text-[#a1a1a6]'
-                      }`}
-                    >
-                      使用收盘价
-                    </button>
-                  </div>
-                </div>
-              )}
-              
               {/* 购入单价/净值 */}
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-1.5">
                   {isFund ? '单位净值' : '购入单价'}
                 </label>
+
+                {/* 手动输入时的价格类型切换（仅股票） */}
+                {!isFund && (
+                  <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (priceInputMode !== 'raw') {
+                          setPriceInputMode('raw');
+                          setDualPrice({ data: null, isLoading: false, selectedType: null });
+                          setFormData(prev => ({ ...prev, purchasePrice: '' }));
+                        }
+                      }}
+                      className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
+                        priceInputMode === 'raw'
+                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      当时实际价格
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (priceInputMode !== 'adjusted') {
+                          setPriceInputMode('adjusted');
+                          setDualPrice({ data: null, isLoading: false, selectedType: null });
+                          setFormData(prev => ({ ...prev, purchasePrice: '' }));
+                        }
+                      }}
+                      className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
+                        priceInputMode === 'adjusted'
+                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      账户成本价
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
@@ -360,17 +406,13 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                       step="0.0001"
                       value={formData.purchasePrice}
                       onChange={(e) => {
-                        if (!formData.useClosingPrice) {
-                          setFormData({ ...formData, purchasePrice: e.target.value });
+                        setFormData({ ...formData, purchasePrice: e.target.value });
+                        if (dualPrice.data) {
+                          setDualPrice(prev => ({ ...prev, selectedType: null }));
                         }
                       }}
-                      placeholder={formData.useClosingPrice ? "自动获取…" : "请输入价格"}
-                      disabled={formData.useClosingPrice}
-                      className={`w-full px-3.5 py-2.5 bg-white dark:bg-[#2c2c2e] border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/30 text-[#1d1d1f] dark:text-white placeholder-[#86868b] transition-all ${
-                        formData.useClosingPrice 
-                          ? 'border-[#e5e5e5] dark:border-[#3a3a3c] bg-[#f9f9f9] dark:bg-[#1c1c1e] cursor-not-allowed' 
-                          : getInputErrorClass(priceError.hasError)
-                      }`}
+                      placeholder={isFund ? '请输入购入单价' : (priceInputMode === 'raw' ? '输入当时实际成交价格' : '输入券商App显示的成本价')}
+                      className={`w-full px-3.5 py-2.5 bg-white dark:bg-[#2c2c2e] border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/30 text-[#1d1d1f] dark:text-white placeholder-[#86868b] transition-all ${getInputErrorClass(priceError.hasError)}`}
                     />
                     {isLoadingPrice && (
                       <span className="absolute right-3.5 top-1/2 -translate-y-1/2 inline-flex items-center text-xs text-[#86868b]">
@@ -378,65 +420,30 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                         获取中…
                       </span>
                     )}
-                    {formData.useClosingPrice && formData.purchasePrice && !isLoadingPrice && (
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-[#34c759] font-medium">
-                        已获取
-                      </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={isFund ? fetchFundNav : fetchClosingPrice}
+                    disabled={!asset?.code || !formData.purchaseDate || isLoadingPrice || (!isFund && priceInputMode === 'adjusted')}
+                    className="py-2.5 px-4 rounded-xl border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm font-medium"
+                  >
+                    {isFund ? '获取净值' : '获取收盘价'}
+                  </button>
+                </div>
+
+                {/* 获取收盘价后的信息展示（仅股票） */}
+                {!isFund && dualPrice.data && (
+                  <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
+                    <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
+                      <span>{formData.purchaseDate} 收盘价：前复权 ¥{formatPrice(dualPrice.data.preAdjusted.price)}</span>
+                      <span>除权价 ¥{formatPrice(dualPrice.data.raw.price)}（当时实际价格）</span>
+                    </div>
+                    {isNegativePrice(dualPrice.data.preAdjusted.price) && (
+                      <div className="mt-1 text-[10px] text-red-500">
+                        ⚠️ 前复权价格极低，建议清除后手动输入除权价
+                      </div>
                     )}
                   </div>
-                  {/* 基金显示获取净值按钮 */}
-                  {isFund && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!asset?.code || !formData.purchaseDate) return;
-                        const code = asset.code.trim();
-                        if (!/^\d{6}$/.test(code)) {
-                          addError('基金代码应为6位数字', 'error', 'editPurchasePrice', 0);
-                          return;
-                        }
-                        setIsLoadingPrice(true);
-                        clearFieldError('editPurchasePrice');
-                        api.fund.getNavHistory(code, formData.purchaseDate, formData.purchaseDate)
-                          .then((fundHistory: any[]) => {
-                            const targetDate = formData.purchaseDate.replace(/-/g, '');
-                            const targetItem = fundHistory.find((item: { date: string; unitNav: number; accumulatedNav: number }) => {
-                              const itemDate = item.date.replace(/-/g, '');
-                              return itemDate === targetDate;
-                            });
-                            if (targetItem) {
-                              setFormData(prev => ({ ...prev, purchasePrice: targetItem.unitNav.toString() }));
-                              (window as any).__fundAccumulatedNav = targetItem.accumulatedNav;
-                              clearFieldError('editPurchasePrice');
-                            } else if (fundHistory.length > 0) {
-                              const nearestItem = fundHistory[0];
-                              setFormData(prev => ({ ...prev, purchasePrice: nearestItem.unitNav.toString() }));
-                              (window as any).__fundAccumulatedNav = nearestItem.accumulatedNav;
-                              clearFieldError('editPurchasePrice');
-                              addError(`${formData.purchaseDate}为休假日，使用前一交易日净值：${nearestItem.unitNav.toFixed(4)}`, 'info', undefined, 5000);
-                            } else {
-                              addError('未获取到该日期净值数据', 'error', 'editPurchasePrice', 0);
-                            }
-                          })
-                          .catch((error: any) => {
-                            console.error('Failed to fetch fund NAV:', error);
-                            addError('获取净值失败，请手动输入', 'error', 'editPurchasePrice', 0);
-                          })
-                          .finally(() => {
-                            setIsLoadingPrice(false);
-                          });
-                      }}
-                      disabled={!asset?.code || !formData.purchaseDate || isLoadingPrice}
-                      className="py-2.5 px-4 rounded-xl border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm font-medium"
-                    >
-                      获取净值
-                    </button>
-                  )}
-                </div>
-                {!isFund && formData.useClosingPrice && (
-                  <p className="mt-1.5 text-xs text-[#86868b]">
-                    系统将自动获取该日期的收盘价
-                  </p>
                 )}
               </div>
 

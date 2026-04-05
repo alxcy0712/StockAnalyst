@@ -14,6 +14,11 @@ export interface Asset {
   quantity: number;
   currency: Currency;
   useClosingPrice?: boolean; // 是否使用收盘价作为购入单价（可选，默认为false）
+
+  // 新增：价格类型和双价格存储（用于股票复权处理）
+  priceInputType?: 'raw' | 'adjusted';  // 用户输入的价格类型：'raw'=除权价(实际成交价), 'adjusted'=前复权价(账户成本)
+  purchasePriceRaw?: number;            // 除权价格（实际交易价格）
+  purchasePriceAdjusted?: number;       // 前复权价格（调整后用于计算）
 }
 
 // 综合净值点
