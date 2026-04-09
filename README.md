@@ -2,6 +2,13 @@
 
 一个纯前端实现的金融资产回测工具，支持A股、港股和基金的综合净值分析。
 
+## 文档导航
+
+| 文档 | 说明 |
+|-----|------|
+| [README.md](./README.md) | 项目介绍、快速开始、使用说明（本文档） |
+| [API_INTERFACES.md](./API_INTERFACES.md) | 外部数据源接口详细文档 |
+
 ## 功能特点
 
 - 支持多种资产类型：A股、港股、基金
@@ -13,12 +20,16 @@
 
 ## 技术栈
 
-- **框架**: React 19 + TypeScript 5.3
-- **构建工具**: Vite 6
-- **样式**: Tailwind CSS 4
-- **图表**: ECharts 5
-- **状态管理**: Zustand
-- **数据存储**: 浏览器 localStorage
+| 类别 | 技术 |
+|-----|------|
+| **框架** | React 19 + TypeScript 5.3 |
+| **构建工具** | Vite 6 |
+| **样式** | Tailwind CSS 4 |
+| **图表** | ECharts 5 |
+| **状态管理** | Zustand |
+| **数据存储** | 浏览器 localStorage + IndexedDB |
+| **测试** | Vitest + React Testing Library |
+| **动画** | Framer Motion |
 
 ## 数据源
 
@@ -29,6 +40,16 @@
 | 基金 | 天天基金网 + 东方财富 | 实时净值、历史净值 |
 | 汇率 | 东方财富 | 实时汇率 |
 
+## 接口文档
+
+详细的外部接口文档请参阅 **[API_INTERFACES.md](./API_INTERFACES.md)**，包含：
+
+- 东方财富 (Eastmoney) - A股/港股K线、基金净值、基准指数
+- 天天基金 (Tiantian Fund) - 基金实时行情
+- 腾讯财经 (Tencent Finance) - 股票实时行情（备用）
+- 汇率API (Exchange Rate) - 实时和历史汇率
+- 后端代理服务 - 解决CORS限制
+
 ## 项目结构
 
 ```
@@ -38,34 +59,39 @@ StockAnalyst/
 ├── src/
 │   ├── api/                    # API层
 │   │   ├── index.ts           # API统一导出
-│   │   ├── adapters/          # 数据源适配器
-│   │   │   ├── eastmoney.ts   # 东方财富（股票K线、基金净值、基准指数）
-│   │   │   ├── tiantian.ts    # 天天基金（实时行情）
-│   │   │   ├── tencent.ts     # 腾讯财经（备用）
-│   │   │   └── exchange.ts    # 汇率服务
-│   │   └── jsonp.ts           # JSONP请求封装
+│   │   └── adapters/          # 数据源适配器
+│   │       ├── eastmoney.ts   # 东方财富（股票K线、基金净值、基准指数）
+│   │       ├── tiantian.ts    # 天天基金（实时行情）
+│   │       ├── tencent.ts     # 腾讯财经（备用）
+│   │       └── exchange.ts    # 汇率服务
 │   ├── components/             # React组件
 │   │   ├── AssetForm.tsx      # 资产录入表单
 │   │   ├── AssetList.tsx      # 资产列表
 │   │   ├── NavChart.tsx       # 净值图表（ECharts）
 │   │   ├── AssetAllocationChart.tsx  # 资产配置饼图
-│   │   └── EditAssetDialog.tsx       # 编辑资产弹窗
+│   │   ├── EditAssetDialog.tsx       # 编辑资产弹窗
+│   │   └── GlobalToast.tsx    # 全局提示组件
 │   ├── stores/                 # 状态管理（Zustand）
 │   │   ├── assetStore.ts       # 资产数据存储
 │   │   ├── benchmarkStore.ts   # 基准指数选择
 │   │   ├── themeStore.ts       # 主题（明暗模式）
+│   │   ├── exchangeStore.ts    # 汇率状态管理
 │   │   └── errorStore.ts       # 全局错误状态
 │   ├── types/                  # TypeScript类型定义
 │   │   └── index.ts
 │   ├── utils/                  # 工具函数
 │   │   ├── calculator.ts       # 收益计算工具
+│   │   ├── portfolioSeries.ts  # 组合净值序列计算
 │   │   ├── dataCache.ts        # IndexedDB数据缓存
 │   │   └── priceFallback.ts    # 价格获取降级策略
-│   └── hooks/                  # 自定义React Hooks
-│       └── useFormError.ts     # 表单错误处理
+│   ├── hooks/                  # 自定义React Hooks
+│   │   └── useFormError.ts     # 表单错误处理
+│   └── test/                   # 测试配置
+│       └── setup.ts            # Vitest测试配置
 ├── index.html
 ├── vite.config.ts
 ├── package.json
+├── API_INTERFACES.md           # 外部接口文档
 └── README.md
 ```
 
@@ -254,8 +280,6 @@ server {
 - 移除周K/月K视图：组合的K线数据基于持仓计算，非真实市场K线，蜡烛图形式缺乏实际参考价值
 - 简化UI：移除周期切换按钮，统一使用日线视图展示资产组合走势
 - 优化缓存：移除K线数据缓存，减少IndexedDB存储占用
-
-## 常见问题
 
 ## 常见问题
 
