@@ -11,6 +11,13 @@ import { GlobalToast } from './components/GlobalToast';
 import { getCurrentExchangeRate } from './api/adapters/exchange';
 
 const APPLE_EASE: [number, number, number, number] = [0.25, 0.1, 0.25, 1.0];
+const APPLE_EASE_CSS = `cubic-bezier(${APPLE_EASE.join(',')})`;
+
+const THEME_TITLES = {
+  light: '浅色模式',
+  dark: '深色模式',
+  system: '跟随系统',
+} as const;
 
 function App() {
   const { theme, setTheme, isDark } = useThemeStore();
@@ -104,8 +111,8 @@ function App() {
               <button
                 onClick={cycleTheme}
                 className="p-2.5 rounded-full text-[#86868b] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300"
-                style={{ transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1.0)' }}
-                title={theme === 'system' ? '跟随系统' : theme === 'dark' ? '深色模式' : '浅色模式'}
+                style={{ transitionTimingFunction: APPLE_EASE_CSS }}
+                title={THEME_TITLES[theme]}
               >
                 <ThemeIcon />
               </button>
@@ -150,7 +157,7 @@ function App() {
                     transition: { duration: 0.3 }
                   }}
                   className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-none border border-gray-200/50 dark:border-gray-800/50 transition-all duration-300 group"
-                  style={{ transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1.0)' }}
+                  style={{ transitionTimingFunction: APPLE_EASE_CSS }}
                 >
                   <div className="flex items-center gap-2.5 mb-2">
                     <item.icon className="w-4 h-4 text-blue-500 dark:text-blue-400" />

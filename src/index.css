@@ -2,16 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =============================================
-   StockAnalyst Design System - Colorful Edition
-   ============================================= */
-
-/* ---------------------------------------------
-   1. CSS Custom Properties - Color System
-   --------------------------------------------- */
-
 :root {
-  /* Gray Scale */
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -23,7 +14,6 @@
   --gray-800: #1f2937;
   --gray-900: #111827;
   
-  /* Apple Gray Colors - Light Mode */
   --apple-gray-50: #fbfbfd;
   --apple-gray-100: #f5f5f7;
   --apple-gray-200: #e8e8ed;
@@ -35,20 +25,16 @@
   --apple-gray-800: #1d1d1f;
   --apple-gray-900: #0d0d0f;
   
-  /* Semantic Colors - Financial (恢复彩色) */
-  /* 涨 - 红色系 */
   --price-up: #ef4444;
   --price-up-light: #f87171;
   --price-up-dark: #dc2626;
   --profit-positive: rgba(239, 68, 68, 0.1);
   
-  /* 跌 - 绿色系 */
   --price-down: #22c55e;
   --price-down-light: #4ade80;
   --price-down-dark: #16a34a;
   --profit-negative: rgba(34, 197, 94, 0.1);
   
-  /* 兼容旧变量名 */
   --apple-positive: #22c55e;
   --apple-positive-light: #4ade80;
   --apple-positive-dark: #16a34a;
@@ -56,7 +42,6 @@
   --apple-negative-light: #f87171;
   --apple-negative-dark: #dc2626;
   
-  /* Accent Colors - 恢复蓝色主强调色 */
   --apple-blue: #2563eb;
   --apple-blue-light: #3b82f6;
   --apple-blue-dark: #1d4ed8;
@@ -71,7 +56,6 @@
   --apple-purple: #a855f7;
   --apple-pink: #ec4899;
   
-  /* Toast Colors */
   --toast-error-bg: #fef2f2;
   --toast-error-border: #fecaca;
   --toast-error-text: #991b1b;
@@ -88,7 +72,6 @@
   --toast-success-border: #86efac;
   --toast-success-text: #166534;
   
-  /* System Colors */
   --apple-background: #ffffff;
   --apple-foreground: #1d1d1f;
   --apple-surface: #f5f5f7;
@@ -96,28 +79,23 @@
   --apple-elevated: #ffffff;
   --apple-muted: #f5f5f7;
   
-  /* Text Hierarchy - Light */
   --text-primary: #1d1d1f;
   --text-secondary: #86868b;
   --text-tertiary: #a1a1a6;
   --text-quaternary: #d2d2d7;
   --text-inverse: #f5f5f7;
   
-  /* Price Neutral */
   --price-neutral: #86868b;
   
-  /* Borders & Dividers */
   --border-default: rgba(0, 0, 0, 0.1);
   --border-subtle: rgba(0, 0, 0, 0.05);
   --border-strong: rgba(0, 0, 0, 0.2);
   
-  /* Chart Colors */
   --chart-primary: #2563eb;
   --chart-primary-light: #3b82f6;
   --chart-area-gradient-start: rgba(37, 99, 235, 0.3);
   --chart-area-gradient-end: rgba(37, 99, 235, 0.05);
   
-  /* Tailwind Compatibility Variables */
   --background: 0 0% 100%;
   --foreground: 0 0% 11%;
   --card: 0 0% 100%;
@@ -139,20 +117,17 @@
   --ring: 217 91% 60%;
   --radius: 0.75rem;
   
-  /* Animation Timing - Apple Standard (保留) */
   --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1.0);
   --ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1.0);
   --ease-accelerate: cubic-bezier(0.4, 0.0, 1.0, 1.0);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1.0);
   
-  /* Duration Variables (保留) */
   --duration-instant: 80ms;
   --duration-fast: 180ms;
   --duration-normal: 280ms;
   --duration-slow: 360ms;
   --duration-slower: 480ms;
   
-  /* Spacing - Apple 8pt Grid (保留) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -165,7 +140,6 @@
   --space-16: 64px;
   --space-20: 80px;
   
-  /* Shadow System (保留) */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
@@ -173,18 +147,12 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
   
-  /* Glass Effect (保留) */
   --glass-background: rgba(255, 255, 255, 0.72);
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-blur: saturate(180%) blur(20px);
 }
 
-/* ---------------------------------------------
-   2. Dark Mode Variables
-   --------------------------------------------- */
-
 .dark {
-  /* Apple Official Colors - Dark Mode */
   --apple-background: #0d0d0f;
   --apple-foreground: #f5f5f7;
   --apple-surface: #1c1c1e;
@@ -192,14 +160,12 @@
   --apple-elevated: #2c2c2e;
   --apple-muted: #1c1c1e;
   
-  /* Text Hierarchy - Dark */
   --text-primary: #f5f5f7;
   --text-secondary: #a1a1a6;
   --text-tertiary: #86868b;
   --text-quaternary: #6e6e73;
   --text-inverse: #1d1d1f;
   
-  /* Financial Colors - Dark (彩色) */
   --price-up: #f87171;
   --price-up-light: #fca5a5;
   --price-up-dark: #ef4444;
@@ -212,7 +178,6 @@
   
   --price-neutral: #8e8e93;
   
-  /* Toast Colors - Dark */
   --toast-error-bg: rgba(239, 68, 68, 0.15);
   --toast-error-border: rgba(239, 68, 68, 0.3);
   --toast-error-text: #fca5a5;
@@ -229,18 +194,15 @@
   --toast-success-border: rgba(34, 197, 94, 0.3);
   --toast-success-text: #86efac;
   
-  /* Chart Colors - Dark */
   --chart-primary: #60a5fa;
   --chart-primary-light: #93c5fd;
   --chart-area-gradient-start: rgba(96, 165, 250, 0.3);
   --chart-area-gradient-end: rgba(96, 165, 250, 0.05);
   
-  /* Borders & Dividers - Dark */
   --border-default: rgba(255, 255, 255, 0.1);
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-strong: rgba(255, 255, 255, 0.2);
   
-  /* Tailwind Dark Compatibility */
   --background: 0 0% 5%;
   --foreground: 0 0% 96%;
   --card: 0 0% 7%;
@@ -261,21 +223,15 @@
   --input: 0 0% 100% / 0.1;
   --ring: 217 91% 60%;
   
-  /* Glass Effect - Dark (保留) */
   --glass-background: rgba(30, 30, 30, 0.72);
   --glass-border: rgba(255, 255, 255, 0.08);
   
-  /* Shadows - Dark (保留) */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
 }
-
-/* ---------------------------------------------
-   3. Base Styles
-   --------------------------------------------- */
 
 * {
   border-color: var(--border-default);
@@ -299,19 +255,16 @@ body {
   font-feature-settings: "kern" 1;
 }
 
-/* Selection Color - 蓝色 */
 ::selection {
   background-color: var(--apple-blue);
   color: white;
 }
 
-/* Focus Outline - 蓝色主强调色 */
 :focus-visible {
   outline: 2px solid var(--apple-blue);
   outline-offset: 2px;
 }
 
-/* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -330,28 +283,20 @@ body {
   background: var(--text-secondary);
 }
 
-/* ---------------------------------------------
-   4. Utility Classes - Surfaces (保留)
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Surface Primary - Main background */
   .surface-primary {
     background-color: var(--apple-surface);
   }
   
-  /* Surface Secondary - Cards, elevated elements */
   .surface-secondary {
     background-color: var(--apple-surface-secondary);
   }
   
-  /* Surface Elevated - Modals, popovers */
   .surface-elevated {
     background-color: var(--apple-elevated);
     box-shadow: var(--shadow-lg);
   }
   
-  /* Glass Effect - Translucent blur (保留) */
   .surface-glass {
     background-color: var(--glass-background);
     backdrop-filter: saturate(180%) blur(20px);
@@ -359,38 +304,28 @@ body {
     border: 1px solid var(--glass-border);
   }
   
-  /* Dark mode glass effect */
   .dark .surface-glass {
     background-color: var(--glass-background);
   }
 }
 
-/* ---------------------------------------------
-   5. Utility Classes - Text Hierarchy
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Primary Text - Main content */
   .text-primary {
     color: var(--text-primary);
   }
   
-  /* Secondary Text - Descriptions */
   .text-secondary {
     color: var(--text-secondary);
   }
   
-  /* Tertiary Text - Hints, placeholders */
   .text-tertiary {
     color: var(--text-tertiary);
   }
   
-  /* Quaternary Text - Disabled, separators */
   .text-quaternary {
     color: var(--text-quaternary);
   }
   
-  /* Financial Colors - 恢复彩色涨跌 */
   .text-up {
     color: var(--price-up);
   }
@@ -399,7 +334,6 @@ body {
     color: var(--price-down);
   }
   
-  /* 兼容旧类名 */
   .text-positive {
     color: var(--price-up);
   }
@@ -412,7 +346,6 @@ body {
     color: var(--price-neutral);
   }
   
-  /* Toast Colors */
   .text-error {
     color: var(--toast-error-text);
   }
@@ -430,47 +363,37 @@ body {
   }
 }
 
-/* ---------------------------------------------
-   6. Utility Classes - Apple Transitions (保留)
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Standard Apple transition */
   .apple-transition {
     transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     transition-duration: var(--duration-normal);
     transition-timing-function: var(--ease-standard);
   }
   
-  /* Fast transition for micro-interactions */
   .apple-transition-fast {
     transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-standard);
   }
   
-  /* Slow transition for emphasis */
   .apple-transition-slow {
     transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     transition-duration: var(--duration-slow);
     transition-timing-function: var(--ease-standard);
   }
   
-  /* Spring transition for playful interactions */
   .apple-transition-spring {
     transition-property: transform;
     transition-duration: var(--duration-normal);
     transition-timing-function: var(--ease-spring);
   }
   
-  /* Transform only transition (performance optimized) */
   .apple-transition-transform {
     transition-property: transform;
     transition-duration: var(--duration-normal);
     transition-timing-function: var(--ease-standard);
   }
   
-  /* Opacity only transition */
   .apple-transition-opacity {
     transition-property: opacity;
     transition-duration: var(--duration-normal);
@@ -478,22 +401,15 @@ body {
   }
 }
 
-/* ---------------------------------------------
-   7. Utility Classes - Financial Indicators
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Profit background - 涨 (红色) */
   .bg-profit-up {
     background-color: var(--profit-positive);
   }
   
-  /* Profit background - 跌 (绿色) */
   .bg-profit-down {
     background-color: var(--profit-negative);
   }
   
-  /* 兼容旧类名 */
   .bg-profit-positive {
     background-color: var(--profit-positive);
   }
@@ -502,22 +418,18 @@ body {
     background-color: var(--profit-negative);
   }
   
-  /* Trend indicator up - 涨红 */
   .trend-up {
     color: var(--price-up);
   }
   
-  /* Trend indicator down - 跌绿 */
   .trend-down {
     color: var(--price-down);
   }
   
-  /* Trend indicator neutral */
   .trend-neutral {
     color: var(--price-neutral);
   }
   
-  /* Toast Backgrounds */
   .bg-toast-error {
     background-color: var(--toast-error-bg);
     border-color: var(--toast-error-border);
@@ -538,10 +450,6 @@ body {
     border-color: var(--toast-success-border);
   }
 }
-
-/* ---------------------------------------------
-   8. Utility Classes - Shadows (保留)
-   --------------------------------------------- */
 
 @layer utilities {
   .shadow-apple-xs {
@@ -569,12 +477,7 @@ body {
   }
 }
 
-/* ---------------------------------------------
-   9. Component Utilities
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Apple-style Card */
   .apple-card {
     background-color: var(--apple-surface-secondary);
     border-radius: var(--radius);
@@ -587,7 +490,6 @@ body {
     box-shadow: var(--shadow-md);
   }
   
-  /* Apple-style Button Base */
   .apple-button {
     display: inline-flex;
     align-items: center;
@@ -605,7 +507,6 @@ body {
     transform: scale(0.96);
   }
   
-  /* Primary Button - 恢复蓝色 */
   .apple-button-primary {
     background-color: var(--apple-blue);
     color: white;
@@ -615,7 +516,6 @@ body {
     background-color: var(--apple-blue-light);
   }
   
-  /* Secondary Button */
   .apple-button-secondary {
     background-color: var(--apple-surface-secondary);
     color: var(--text-primary);
@@ -626,7 +526,6 @@ body {
     background-color: var(--apple-surface);
   }
   
-  /* Apple-style Input */
   .apple-input {
     background-color: var(--apple-surface-secondary);
     border: 1px solid var(--border-subtle);
@@ -649,12 +548,7 @@ body {
   }
 }
 
-/* ---------------------------------------------
-   10. Chart Utilities
-   --------------------------------------------- */
-
 @layer utilities {
-  /* Chart Colors */
   .chart-primary {
     color: var(--chart-primary);
   }
@@ -663,15 +557,10 @@ body {
     background-color: var(--chart-primary);
   }
   
-  /* Chart Gradients */
   .chart-area-gradient {
     background: linear-gradient(to bottom, var(--chart-area-gradient-start), var(--chart-area-gradient-end));
   }
 }
-
-/* ---------------------------------------------
-   11. Animation Keyframes (保留)
-   --------------------------------------------- */
 
 @keyframes fadeIn {
   from {
@@ -746,10 +635,6 @@ body {
   }
 }
 
-/* ---------------------------------------------
-   12. Accessibility - Reduced Motion (保留)
-   --------------------------------------------- */
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -763,10 +648,6 @@ body {
     scroll-behavior: auto;
   }
 }
-
-/* ---------------------------------------------
-   13. Print Styles (保留)
-   --------------------------------------------- */
 
 @media print {
   body {

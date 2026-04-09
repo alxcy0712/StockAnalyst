@@ -116,17 +116,14 @@ export function AssetForm() {
   const [isLoadingName, setIsLoadingName] = useState(false);
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 
-  // 新增：手动输入时的价格类型选择（'raw'=除权价/当时实际价格, 'adjusted'=前复权价/账户成本）
   const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>('raw');
 
-  // 新增：获取收盘价时的双价格数据
   const [dualPrice, setDualPrice] = useState<{
     data: DualPriceResult | null;
     isLoading: boolean;
     selectedType: 'raw' | 'adjusted' | null;
   }>({ data: null, isLoading: false, selectedType: null });
 
-  // 表单字段错误管理
   const codeError = useFormError({
     field: 'code',
     validate: (value) => {
@@ -225,7 +222,6 @@ export function AssetForm() {
         return;
       }
 
-      // 获取双价格：前复权和除权
       const result = await getDualClosingPriceWithFallback(
         formData.code,
         formData.type as 'a_stock' | 'hk_stock',
@@ -239,7 +235,6 @@ export function AssetForm() {
         selectedType: 'adjusted'
       });
 
-      // 默认填入前复权价格
       if (result.preAdjusted.price !== null) {
         setFormData(prev => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
         clearFieldError('purchasePrice');
@@ -285,7 +280,6 @@ export function AssetForm() {
 
   useEffect(() => {
     if (formData.useClosingPrice && formData.code && formData.purchaseDate) {
-      // 校验代码格式
       const code = formData.code.trim();
       if (formData.type === 'a_stock' && !/^\d{6}$/.test(code)) {
         addError('A股代码应为6位数字', 'error', 'code', 0);
@@ -308,7 +302,6 @@ export function AssetForm() {
       const code = formData.code.trim();
       if (!code || formData.name) return;
 
-      // 校验代码格式，格式不对直接返回，不调用API
       if (formData.type === 'a_stock' && !/^\d{6}$/.test(code)) {
         return;
       }
@@ -428,7 +421,6 @@ export function AssetForm() {
 
   return (
     <>
-      {/* Apple 风格触发按钮 */}
       <motion.button
         onClick={() => setIsOpen(true)}
         whileHover={{ scale: 1.02 }}
@@ -439,7 +431,6 @@ export function AssetForm() {
         <span>添加资产</span>
       </motion.button>
 
-      {/* 弹窗 Portal */}
       {isOpen && createPortal(
         <AnimatePresence>
           <motion.div
@@ -458,7 +449,6 @@ export function AssetForm() {
               <h2 className="text-xl font-semibold mb-5 text-[#1d1d1f] dark:text-white">添加资产</h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 资产类型 */}
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">资产类型</label>
                   <select
@@ -487,7 +477,6 @@ export function AssetForm() {
                   </select>
                 </div>
 
-                {/* 资产代码 */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
                     <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6]">资产代码</label>
@@ -512,7 +501,6 @@ export function AssetForm() {
                     className={inputBaseClass}
                   />
                   
-                  {/* 帮助信息面板 */}
                   <AnimatePresence>
                     {showHelp && (
                       <motion.div 
@@ -546,7 +534,6 @@ export function AssetForm() {
                   )}
                 </div>
 
-                {/* 资产名称 */}
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">
                     资产名称
@@ -569,7 +556,6 @@ export function AssetForm() {
                   />
                 </div>
 
-                {/* 购入日期 */}
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">购入日期</label>
                   <DatePicker
@@ -591,11 +577,9 @@ export function AssetForm() {
                   />
                 </div>
 
-                {/* 购入单价 */}
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">购入单价</label>
 
-                  {/* 手动输入时的价格类型切换（仅股票） */}
                   {!isFund && (
                     <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 mb-2">
                       <button
@@ -669,7 +653,6 @@ export function AssetForm() {
                     </motion.button>
                   </div>
 
-                  {/* 获取收盘价后的信息展示（仅股票） */}
                   {!isFund && dualPrice.data && (
                     <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
                       <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
@@ -685,7 +668,6 @@ export function AssetForm() {
                   )}
                 </div>
 
-                {/* 数量 */}
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">数量</label>
                   <input
@@ -698,7 +680,6 @@ export function AssetForm() {
                   />
                 </div>
 
-                {/* 按钮组 */}
                 <div className="flex gap-3 pt-5">
                   <motion.button
                     type="button"

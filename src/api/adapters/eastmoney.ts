@@ -3,14 +3,6 @@ import type { KLineData, BenchmarkIndex, BenchmarkConfig, BenchmarkNavPoint } fr
 // 东方财富API - AKShare使用的数据源
 const EASTMONEY_KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
 
-/**
- * 获取A股历史K线数据（东方财富）
- * @param code 股票代码 如：600050
- * @param period 周期 day/week/month
- * @param startDate 开始日期 YYYYMMDD
- * @param endDate 结束日期 YYYYMMDD
- * @param fqt 复权类型：0=不复权(除权)，1=前复权，2=后复权，默认为1(前复权)
- */
 export async function getAStockKLineEastmoney(
   code: string,
   period: 'day' | 'week' | 'month' = 'day',
@@ -57,14 +49,6 @@ export async function getAStockKLineEastmoney(
   }
 }
 
-/**
- * 获取港股历史K线数据（东方财富）
- * @param code 股票代码 如：00700
- * @param period 周期 day/week/month
- * @param startDate 开始日期 YYYYMMDD
- * @param endDate 结束日期 YYYYMMDD
- * @param fqt 复权类型：0=不复权(除权)，1=前复权，2=后复权，默认为1(前复权)
- */
 export async function getHKStockKLineEastmoney(
   code: string,
   period: 'day' | 'week' | 'month' = 'day',
@@ -108,8 +92,6 @@ export async function getHKStockKLineEastmoney(
   }
 }
 
-// 与基金相关的东方财富数据获取
-// 获取基金在指定日期范围内的净值历史（单位净值+累计净值+日增长率）
 export async function getFundNavHistory(
   fundCode: string,
   startDate?: string,
@@ -186,7 +168,6 @@ export async function getFundNavOnDate(fundCode: string, date: string): Promise<
   return null;
 }
 
-// 获取基金全部历史净值（滑动窗口分页请求）
 export async function getFundNavAll(fundCode: string, startDate?: string): Promise<{ date: string; unitNav: number; accumulatedNav: number; changePercent: number }[]> {
   try {
     const ensureHyphen = (d: string) => {
@@ -244,12 +225,8 @@ export async function getBenchmarkKLine(
 
     const url = `${EASTMONEY_KLINE_URL}?secid=${config.secid}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=0&beg=${startDate}&end=${endDate}&ut=fa5fd1943c7b386f172d6893dbfba10b&_=${Date.now()}`;
 
-    console.log('Benchmark URL:', url);
-
     const response = await fetch(url);
     const data = await response.json();
-
-    console.log('Benchmark API response:', data);
 
     if (data.data && data.data.klines) {
       return data.data.klines.map((item: string) => {

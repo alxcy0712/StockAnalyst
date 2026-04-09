@@ -152,10 +152,10 @@ describe('Portfolio Data Consistency E2E Test', () => {
 
     const v1 = result1.performance[result1.performance.length - 1]?.nav;
     const data1 = {
-      scale: result1.scale.map(s => ({...s})),
-      performance: result1.performance.map(p => ({...p})),
-      lastScalePoint: {...result1.scale[result1.scale.length - 1]},
-      lastPerformancePoint: {...result1.performance[result1.performance.length - 1]},
+      scale: result1.scale,
+      performance: result1.performance,
+      lastScalePoint: result1.scale[result1.scale.length - 1],
+      lastPerformancePoint: result1.performance[result1.performance.length - 1],
     };
 
     expect(v1).toBeDefined();
@@ -198,10 +198,10 @@ describe('Portfolio Data Consistency E2E Test', () => {
     const result3 = await calculatePortfolioSeries(assetsStep3, true);
     const v3 = result3.performance[result3.performance.length - 1]?.nav;
     const data3 = {
-      scale: result3.scale.map(s => ({...s})),
-      performance: result3.performance.map(p => ({...p})),
-      lastScalePoint: {...result3.scale[result3.scale.length - 1]},
-      lastPerformancePoint: {...result3.performance[result3.performance.length - 1]},
+      scale: result3.scale,
+      performance: result3.performance,
+      lastScalePoint: result3.scale[result3.scale.length - 1],
+      lastPerformancePoint: result3.performance[result3.performance.length - 1],
     };
 
     expect(v3).toBeDefined();
@@ -315,15 +315,12 @@ describe('Portfolio Data Consistency E2E Test', () => {
       clearPortfolioSeriesCache();
       const thirdResult = await calculatePortfolioSeries([singleFundAsset], true);
 
-      const latestTotalValues = [firstResult, secondResult, thirdResult].map(
-        (result) => result.scale[result.scale.length - 1]?.totalValueCNY
-      );
-      const latestNavs = [firstResult, secondResult, thirdResult].map(
-        (result) => result.performance[result.performance.length - 1]?.nav
-      );
-
-      latestTotalValues.forEach((value) => expect(value).toBeCloseTo(102, 6));
-      latestNavs.forEach((value) => expect(value).toBeCloseTo(102, 6));
+      expect(firstResult.scale[firstResult.scale.length - 1]?.totalValueCNY).toBeCloseTo(102, 6);
+      expect(secondResult.scale[secondResult.scale.length - 1]?.totalValueCNY).toBeCloseTo(102, 6);
+      expect(thirdResult.scale[thirdResult.scale.length - 1]?.totalValueCNY).toBeCloseTo(102, 6);
+      expect(firstResult.performance[firstResult.performance.length - 1]?.nav).toBeCloseTo(102, 6);
+      expect(secondResult.performance[secondResult.performance.length - 1]?.nav).toBeCloseTo(102, 6);
+      expect(thirdResult.performance[thirdResult.performance.length - 1]?.nav).toBeCloseTo(102, 6);
     } finally {
       vi.useRealTimers();
     }

@@ -31,7 +31,6 @@ export function AssetList() {
     );
   }
 
-  // 计算总成本（统一转换为人民币）
   const totalCost = assets.reduce((sum, asset) => {
     const cost = asset.purchasePrice * asset.quantity;
     const rate = getHistoricalExchangeRate(asset.purchaseDate);
@@ -60,7 +59,7 @@ export function AssetList() {
         <div className="grid gap-3" style={{ gridAutoRows: 'auto' }}>
           {assets.map((asset) => {
             const isHighlighted = highlightedAssetId === asset.id;
-            const dim = highlightedAssetId ? (highlightedAssetId === asset.id ? false : true) : false;
+            const dim = highlightedAssetId && !isHighlighted;
             return (
               <div key={asset.id} className={dim ? 'opacity-40 transition-opacity duration-280' : 'transition-opacity duration-280'}>
                 <AssetCard

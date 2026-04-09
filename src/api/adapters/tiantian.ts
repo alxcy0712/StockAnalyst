@@ -10,7 +10,6 @@ function enqueueFundQuote<T>(task: () => Promise<T>): Promise<T> {
   return queuedTask;
 }
 
-// 获取基金实时数据（含估算净值）
 export async function getFundQuote(fundCode: string): Promise<FundData | null> {
   return enqueueFundQuote(
     () =>

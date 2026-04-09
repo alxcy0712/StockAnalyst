@@ -20,7 +20,6 @@ interface EditAssetDialogProps {
   onClose: () => void;
 }
 
-// Apple-style animation constants
 const overlayVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
@@ -60,19 +59,16 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
   const { addError, clearAll, clearFieldError } = useErrorStore();
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 
-  // 新增：手动输入时的价格类型选择
   const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>(
     asset?.priceInputType || 'adjusted'
   );
 
-  // 新增：获取收盘价时的双价格数据
   const [dualPrice, setDualPrice] = useState<{
     data: DualPriceResult | null;
     isLoading: boolean;
     selectedType: 'raw' | 'adjusted' | null;
   }>({ data: null, isLoading: false, selectedType: null });
 
-  // 表单字段错误管理
   const priceError = useFormError({
     field: 'editPurchasePrice',
     validate: (value) => {
@@ -102,7 +98,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     useClosingPrice: false,
   });
 
-  // 当 asset 变化时更新表单数据
   useEffect(() => {
     if (asset) {
       setFormData({
@@ -118,7 +113,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     }
   }, [asset]);
 
-  // ESC 键关闭弹窗
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -129,7 +123,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // 阻止背景滚动
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -147,7 +140,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     onClose();
   };
 
-  // 手动获取收盘价（仅股票）
   const fetchClosingPrice = async () => {
     if (!asset || !asset.code || !formData.purchaseDate) return;
 
@@ -284,7 +276,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* 遮罩层 */}
           <motion.div
             className="absolute inset-0 bg-[#1d1d1f]/50 dark:bg-black/70 backdrop-blur-sm"
             variants={overlayVariants}
@@ -295,7 +286,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
             onClick={handleClose}
           />
           
-          {/* 弹窗内容 */}
           <motion.div
             className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-[#1c1c1e]/95 rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 backdrop-blur-xl"
             variants={dialogVariants}
@@ -304,7 +294,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
             exit="exit"
             onClick={e => e.stopPropagation()}
           >
-            {/* 头部 */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/10">
               <div>
                 <h2 className="text-xl font-semibold text-[#1d1d1f] dark:text-white tracking-tight">编辑资产</h2>
@@ -318,9 +307,7 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
               </button>
             </div>
 
-            {/* 内容区 */}
             <div className="p-6 space-y-4">
-              {/* 类型标签 */}
               <div className="flex items-center gap-2">
                 <span className="text-xs px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 font-medium">
                   {TYPE_LABELS[asset.type]}
@@ -330,7 +317,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                 </span>
               </div>
 
-              {/* 资产名称 */}
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-1.5">资产名称</label>
                 <input
@@ -342,7 +328,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                 />
               </div>
 
-              {/* 购入日期 */}
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-1.5">购入日期</label>
                 <input
@@ -353,13 +338,11 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                 />
               </div>
 
-              {/* 购入单价/净值 */}
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-1.5">
                   {isFund ? '单位净值' : '购入单价'}
                 </label>
 
-                {/* 手动输入时的价格类型切换（仅股票） */}
                 {!isFund && (
                   <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 mb-2">
                     <button
@@ -431,7 +414,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                   </button>
                 </div>
 
-                {/* 获取收盘价后的信息展示（仅股票） */}
                 {!isFund && dualPrice.data && (
                   <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
                     <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
@@ -447,7 +429,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                 )}
               </div>
 
-              {/* 数量 */}
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] dark:text-white mb-1.5">数量</label>
                 <input
@@ -462,7 +443,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
 
             </div>
 
-            {/* 底部按钮 */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-black/5 dark:border-white/10 bg-[#fafafa] dark:bg-[#1c1c1e]/50 rounded-b-2xl">
               <button
                 onClick={handleClose}
