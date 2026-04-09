@@ -92,9 +92,9 @@ function App() {
             >
               {rates && (
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100/80 dark:bg-gray-800/50 rounded-full text-[11px]">
-                  <span className="text-gray-600 dark:text-gray-300">1HKD={(1/rates.CNY_HKD).toFixed(4)}CNY</span>
+                  <span className="text-gray-600 dark:text-gray-300">1HKD={rates.CNY_HKD.toFixed(4)}CNY</span>
                   <span className="text-gray-300 dark:text-gray-600">|</span>
-                  <span className="text-gray-600 dark:text-gray-300">1USD={(1/rates.CNY_USD).toFixed(4)}CNY</span>
+                  <span className="text-gray-600 dark:text-gray-300">1USD={rates.CNY_USD.toFixed(4)}CNY</span>
                   {updateTime && (
                     <span className="text-[#86868b] dark:text-gray-500 ml-1">({updateTime})</span>
                   )}
@@ -198,7 +198,7 @@ function App() {
               <span>基金净值：天天基金</span>
               <span>历史净值：东方财富</span>
               {rates && (
-                <span>汇率：1HKD={(1/rates.CNY_HKD).toFixed(4)}CNY / 1USD={(1/rates.CNY_USD).toFixed(4)}CNY {updateTime && `(${updateTime})`}</span>
+                <span>汇率：1HKD={rates.CNY_HKD.toFixed(4)}CNY / 1USD={rates.CNY_USD.toFixed(4)}CNY {updateTime && `(${updateTime})`}</span>
               )}
             </div>
           </div>
