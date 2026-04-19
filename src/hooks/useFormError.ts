@@ -4,10 +4,9 @@ import { useErrorStore } from '../stores/errorStore';
 interface UseFormErrorOptions {
   field: string;
   validate?: (value: unknown) => string | null;
-  deps?: unknown[];
 }
 
-export function useFormError({ field, validate, deps = [] }: UseFormErrorOptions) {
+export function useFormError({ field, validate }: UseFormErrorOptions) {
   const { getFieldError, clearFieldError, addError } = useErrorStore();
   const fieldError = getFieldError(field);
 
@@ -16,12 +15,12 @@ export function useFormError({ field, validate, deps = [] }: UseFormErrorOptions
     const error = validate(value);
     if (error) {
       clearFieldError(field);
-      addError(error, 'error', field, 0);
+      addError(error, 'error', field);
       return false;
     }
     clearFieldError(field);
     return true;
-  }, [field, validate, addError, clearFieldError, ...deps]);
+  }, [field, validate, addError, clearFieldError]);
 
   useEffect(() => {
     return () => {

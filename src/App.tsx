@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
@@ -31,7 +31,7 @@ function App() {
     }
   }, [isDark]);
 
-  const fetchRates = async () => {
+  const fetchRates = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getCurrentExchangeRate();
@@ -39,13 +39,13 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setRates]);
 
   useEffect(() => {
     fetchRates();
     const interval = setInterval(fetchRates, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchRates]);
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -194,7 +194,7 @@ function App() {
               数据仅供学习参考，不构成投资建议
             </p>
             <div className="flex gap-4 text-[10px] text-[#86868b] dark:text-gray-500 flex-wrap justify-center">
-              <span>A股/港股：东方财富</span>
+              <span>A股/港股：多源历史行情</span>
               <span>基金净值：天天基金</span>
               <span>历史净值：东方财富</span>
               {rates && (

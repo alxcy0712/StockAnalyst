@@ -16,11 +16,11 @@ export async function getFundQuote(fundCode: string): Promise<FundData | null> {
       new Promise((resolve) => {
         const timestamp = Date.now();
         const script = document.createElement('script');
-        const originalCallback = (window as any).jsonpgz;
+        const originalCallback = window.jsonpgz;
         let settled = false;
 
         const restoreCallback = () => {
-          (window as any).jsonpgz = originalCallback;
+          window.jsonpgz = originalCallback;
         };
 
         const cleanup = () => {
@@ -46,8 +46,7 @@ export async function getFundQuote(fundCode: string): Promise<FundData | null> {
           settle(null);
         }, 10000);
 
-        // 天天基金使用固定的 jsonpgz 回调函数，只能串行请求避免互相覆盖
-        (window as any).jsonpgz = (data: FundData) => {
+        window.jsonpgz = (data: FundData) => {
           settle(data && data.name ? data : null);
         };
 

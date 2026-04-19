@@ -37,9 +37,9 @@ export async function getClosingPriceWithFallback(
     let klineData: { date: string; close: number }[] = [];
     
     if (type === 'a_stock') {
-      klineData = await api.stock.getAStockKLineEastmoney(code, 'day', extendedStartDate, endDate);
+      klineData = await api.stock.getAStockKLine(code, 'day', extendedStartDate, endDate);
     } else {
-      klineData = await api.stock.getHKStockKLineEastmoney(code, 'day', extendedStartDate, endDate);
+      klineData = await api.stock.getHKStockKLine(code, 'day', extendedStartDate, endDate);
     }
     
     if (klineData.length === 0) {
@@ -115,9 +115,9 @@ export async function getClosingPriceWithAdjustment(
     let klineData: { date: string; close: number }[] = [];
 
     if (type === 'a_stock') {
-      klineData = await api.stock.getAStockKLineEastmoney(code, 'day', extendedStartDate, endDate, fqt);
+      klineData = await api.stock.getAStockKLine(code, 'day', extendedStartDate, endDate, fqt);
     } else {
-      klineData = await api.stock.getHKStockKLineEastmoney(code, 'day', extendedStartDate, endDate, fqt);
+      klineData = await api.stock.getHKStockKLine(code, 'day', extendedStartDate, endDate, fqt);
     }
 
     if (klineData.length === 0) {

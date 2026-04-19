@@ -13,7 +13,6 @@ export interface Asset {
   accumulatedNavAtPurchase?: number; // 买入时的累计净值（仅基金用）
   quantity: number;
   currency: Currency;
-  useClosingPrice?: boolean; // 是否使用收盘价作为购入单价（可选，默认为false）
 
   // 新增：价格类型和双价格存储（用于股票复权处理）
   priceInputType?: 'raw' | 'adjusted';  // 用户输入的价格类型：'raw'=除权价(实际成交价), 'adjusted'=前复权价(账户成本)
@@ -93,6 +92,25 @@ export interface KLineData {
   volume?: number;
 }
 
+export type StockMarket = 'a_stock' | 'hk_stock';
+
+export interface StockKLineEnvelope {
+  data: KLineData[];
+  providerUsed: 'database';
+  attemptedProviders: ['database'];
+  degraded: false;
+  message: null;
+}
+
+export interface StockValidationResult {
+  valid: boolean;
+  market?: StockMarket;
+  code?: string;
+  name?: string;
+  currency?: Currency;
+  message?: string;
+}
+
 export type BenchmarkIndex = 'csi300' | 'shanghai' | 'none';
 
 export interface BenchmarkConfig {
@@ -114,4 +132,12 @@ export interface BenchmarkComparison {
   alpha: number;
   trackingError: number;
   informationRatio: number;
+}
+
+declare global {
+  interface Window {
+    [key: `v_${string}`]: string | undefined;
+    __fundAccumulatedNav?: number;
+    jsonpgz?: ((data: FundData) => void) | undefined;
+  }
 }

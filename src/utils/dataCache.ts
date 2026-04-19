@@ -1,16 +1,20 @@
 import type { Asset } from '../types';
 
-interface CacheEntry {
+type CachePayload = Array<[string, number]>;
+
+interface CacheEntry<T = CachePayload> {
   assetId: string;
-  data: any;
+  data: T;
   timestamp: number;
   tradingDay: string;
   assetHash: string;
+  schemaVersion: number;
 }
 
 const DB_NAME = 'StockAnalystCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'assetHistory';
+const CACHE_SCHEMA_VERSION = 2;
 
 class DataCache {
   private db: IDBDatabase | null = null;
@@ -42,12 +46,12 @@ class DataCache {
     return this.initPromise;
   }
 
-  async get(assetId: string, asset: Asset, cacheType: 'nav' = 'nav'): Promise<any | null> {
+  async get<T = CachePayload>(assetId: string, asset: Asset, cacheType: 'nav' = 'nav'): Promise<T | null> {
     const cacheKey = `${assetId}_${cacheType}`;
-    return this.getByKey(cacheKey, asset);
+    return this.getByKey<T>(cacheKey, asset);
   }
 
-  async getByKey(cacheKey: string, asset: Asset): Promise<any | null> {
+  async getByKey<T = CachePayload>(cacheKey: string, asset: Asset): Promise<T | null> {
     await this.init();
     if (!this.db) return null;
 
@@ -57,9 +61,15 @@ class DataCache {
       const request = store.get(cacheKey);
 
       request.onsuccess = () => {
-        const entry: CacheEntry | undefined = request.result;
+        const entry = request.result as CacheEntry<T> | undefined;
 
         if (!entry) {
+          resolve(null);
+          return;
+        }
+
+        if (entry.schemaVersion !== CACHE_SCHEMA_VERSION) {
+          console.log(`Cache invalidated for ${asset.code}: schema version changed`);
           resolve(null);
           return;
         }
@@ -87,21 +97,22 @@ class DataCache {
     });
   }
 
-  async set(assetId: string, data: any, asset: Asset, cacheType: 'nav' = 'nav'): Promise<void> {
+  async set<T = CachePayload>(assetId: string, data: T, asset: Asset, cacheType: 'nav' = 'nav'): Promise<void> {
     const cacheKey = `${assetId}_${cacheType}`;
     return this.setByKey(cacheKey, data, asset);
   }
 
-  async setByKey(cacheKey: string, data: any, asset: Asset): Promise<void> {
+  async setByKey<T = CachePayload>(cacheKey: string, data: T, asset: Asset): Promise<void> {
     await this.init();
     if (!this.db) return;
 
-    const entry: CacheEntry = {
+    const entry: CacheEntry<T> = {
       assetId: cacheKey,
       data,
       timestamp: Date.now(),
       tradingDay: this.getLastTradingDay(),
       assetHash: this.generateAssetHash(asset),
+      schemaVersion: CACHE_SCHEMA_VERSION,
     };
 
     return new Promise((resolve, reject) => {
@@ -146,7 +157,7 @@ class DataCache {
     });
   }
 
-  private isExpired(entry: CacheEntry): boolean {
+  private isExpired<T>(entry: CacheEntry<T>): boolean {
     const now = new Date();
     const cacheTime = new Date(entry.timestamp);
 

@@ -1,10 +1,11 @@
-// Simple Express proxy to fetch基金净值历史 from Eastmoney without CORS issues
 import express from 'express';
+import { stockHistoryService } from './stockService.js';
 
 const app = express();
 const PORT = 3001;
 
-// CORS headers
+app.use(express.json());
+
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -16,7 +17,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Endpoint: /api/fundnav/history?code=007466&startDate=2025-01-01&endDate=2026-02-19&per=500&page=1
 app.get('/api/fundnav/history', async (req, res) => {
   try {
     const { code, startDate, endDate, per = '500', page = '1' } = req.query;
@@ -37,7 +37,6 @@ app.get('/api/fundnav/history', async (req, res) => {
   }
 });
 
-// Endpoint: /api/fundnav/all?code=007466&startDate=2025-01-01 - 获取全部历史数据（滑动窗口分页）
 app.get('/api/fundnav/all', async (req, res) => {
   try {
     const { code, startDate, per = '20' } = req.query;
@@ -61,17 +60,14 @@ app.get('/api/fundnav/all', async (req, res) => {
       const r = await fetch(url, { mode: 'cors' });
       const text = await r.text();
 
-      // 解析 var apidata = {...} 格式
       const apidataMatch = text.match(/var apidata=(\{[^;]+\});/);
       if (apidataMatch) {
         try {
-          // 直接从文本中提取 records 和 pages
           const recordsMatch = text.match(/records:(\d+)/);
           const pagesMatch = text.match(/pages:(\d+)/);
           if (recordsMatch) console.log(`Page ${currentPage}: records=${recordsMatch[1]}, pages=${pagesMatch ? pagesMatch[1] : '?'}`);
           if (pagesMatch) totalPages = parseInt(pagesMatch[1]);
           
-          // 解析HTML内容 - 使用更简单的方式
           const tbodyMatch = text.match(/<tbody>([\s\S]*?)<\/tbody>/i);
           if (tbodyMatch) {
             const tbodyHtml = tbodyMatch[1];
@@ -115,6 +111,82 @@ app.get('/api/fundnav/all', async (req, res) => {
   }
 });
 
+app.get('/api/stock/validate', async (req, res) => {
+  try {
+    const { market, code } = req.query;
+
+    if (!market || !code) {
+      res.status(400).json({ valid: false, message: 'market and code are required' });
+      return;
+    }
+
+    if (!['a_stock', 'hk_stock'].includes(market)) {
+      res.status(400).json({ valid: false, message: 'market must be a_stock or hk_stock' });
+      return;
+    }
+
+    const result = await stockHistoryService.validateSymbol(market, String(code));
+
+    if (result.exists) {
+      res.json({
+        valid: true,
+        market,
+        code,
+        name: result.symbol.name,
+        currency: result.symbol.currency,
+      });
+    } else {
+      res.status(404).json({
+        valid: false,
+        market,
+        code,
+        message: result.error || '数据库中没有该资产的历史数据',
+      });
+    }
+  } catch (error) {
+    console.error('Stock validation error:', error);
+    res.status(500).json({
+      valid: false,
+      message: error.message || 'validation error',
+    });
+  }
+});
+
+app.get('/api/stock/kline', async (req, res) => {
+  try {
+    const {
+      market,
+      code,
+      period = 'day',
+      startDate,
+      endDate,
+      fqt = '1',
+    } = req.query;
+
+    if (!market || !code) {
+      res.status(400).json({ message: 'market and code are required' });
+      return;
+    }
+
+    const envelope = await stockHistoryService.getKLineEnvelope({
+      market: String(market),
+      code: String(code),
+      period: String(period),
+      startDate: startDate ? String(startDate) : undefined,
+      endDate: endDate ? String(endDate) : undefined,
+      fqt: Number.parseInt(String(fqt), 10),
+    });
+
+    res.json(envelope);
+  } catch (error) {
+    console.error('Stock kline error:', error);
+    res.status(error.statusCode || 500).json({
+      message: error.message || 'stock kline error',
+      code: error.code || 'internal_error',
+    });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Fund NAV proxy listening on http://localhost:${PORT}`);
+  console.log(`Data proxy listening on http://localhost:${PORT}`);
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
 import { useAssetStore } from '../stores/assetStore';
@@ -29,45 +29,43 @@ const overlayVariants = {
 const APPLE_EASE_OUT: [number, number, number, number] = [0.25, 0.1, 0.25, 1.0];
 
 const dialogVariants = {
-  hidden: { 
-    opacity: 0, 
-    scale: 0.98, 
-    y: 10 
+  hidden: {
+    opacity: 0,
+    scale: 0.98,
+    y: 10,
   },
-  visible: { 
-    opacity: 1, 
-    scale: 1, 
+  visible: {
+    opacity: 1,
+    scale: 1,
     y: 0,
     transition: {
       duration: 0.32,
       ease: APPLE_EASE_OUT,
-    }
+    },
   },
-  exit: { 
-    opacity: 0, 
-    scale: 0.985, 
+  exit: {
+    opacity: 0,
+    scale: 0.985,
     y: 8,
     transition: {
       duration: 0.25,
       ease: APPLE_EASE_OUT,
-    }
+    },
   },
 };
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps) {
   const updateAsset = useAssetStore((state) => state.updateAsset);
   const { addError, clearAll, clearFieldError } = useErrorStore();
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
-
   const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>(
     asset?.priceInputType || 'adjusted'
   );
-
-  const [dualPrice, setDualPrice] = useState<{
-    data: DualPriceResult | null;
-    isLoading: boolean;
-    selectedType: 'raw' | 'adjusted' | null;
-  }>({ data: null, isLoading: false, selectedType: null });
+  const [dualPrice, setDualPrice] = useState<DualPriceResult | null>(null);
 
   const priceError = useFormError({
     field: 'editPurchasePrice',
@@ -95,23 +93,29 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     purchasePrice: '',
     quantity: '',
     currency: 'CNY' as Currency,
-    useClosingPrice: false,
   });
 
   useEffect(() => {
-    if (asset) {
-      setFormData({
-        name: asset.name,
-        purchaseDate: asset.purchaseDate,
-        purchasePrice: asset.purchasePrice.toString(),
-        quantity: asset.quantity.toString(),
-        currency: asset.currency,
-        useClosingPrice: asset.useClosingPrice ?? false,
-      });
-      setPriceInputMode(asset.priceInputType || 'adjusted');
-      setDualPrice({ data: null, isLoading: false, selectedType: null });
+    if (!asset) {
+      return;
     }
+
+    setFormData({
+      name: asset.name,
+      purchaseDate: asset.purchaseDate,
+      purchasePrice: asset.purchasePrice.toString(),
+      quantity: asset.quantity.toString(),
+      currency: asset.currency,
+    });
+    setPriceInputMode(asset.priceInputType || 'adjusted');
+    setDualPrice(null);
   }, [asset]);
+
+  const handleClose = useCallback(() => {
+    clearAll();
+    setDualPrice(null);
+    onClose();
+  }, [clearAll, onClose]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -121,7 +125,7 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -134,100 +138,101 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     };
   }, [isOpen]);
 
-  const handleClose = () => {
-    clearAll();
-    setDualPrice({ data: null, isLoading: false, selectedType: null });
-    onClose();
-  };
-
   const fetchClosingPrice = async () => {
-    if (!asset || !asset.code || !formData.purchaseDate) return;
+    if (!asset || asset.type === 'fund' || !asset.code || !formData.purchaseDate) {
+      return;
+    }
 
     const code = asset.code.trim();
     if (asset.type === 'a_stock' && !/^\d{6}$/.test(code)) {
-      addError('A股代码应为6位数字', 'error', 'editPurchasePrice', 0);
+      addError('A股代码应为6位数字', 'error', 'editPurchasePrice');
       return;
     }
     if (asset.type === 'hk_stock' && !/^\d{5}$/.test(code)) {
-      addError('港股代码应为5位数字', 'error', 'editPurchasePrice', 0);
+      addError('港股代码应为5位数字', 'error', 'editPurchasePrice');
       return;
     }
 
     setIsLoadingPrice(true);
-    setDualPrice(prev => ({ ...prev, isLoading: true }));
     clearFieldError('editPurchasePrice');
 
     try {
       const result = await getDualClosingPriceWithFallback(
         asset.code,
-        asset.type as 'a_stock' | 'hk_stock',
+        asset.type,
         formData.purchaseDate,
         7
       );
 
-      setDualPrice({
-        data: result,
-        isLoading: false,
-        selectedType: 'adjusted'
-      });
+      setDualPrice(result);
 
       if (result.preAdjusted.price !== null) {
-        setFormData(prev => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
+        setFormData((prev) => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
         clearFieldError('editPurchasePrice');
 
         if (result.preAdjusted.isHoliday && result.preAdjusted.message) {
           addError(result.preAdjusted.message, 'info', undefined, 5000);
         }
-      } else {
-        addError(result.preAdjusted.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice', 0);
+        return;
       }
-    } catch (error) {
+
+      addError(result.preAdjusted.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice');
+    } catch (error: unknown) {
       console.error('Failed to fetch closing price:', error);
-      addError('获取价格失败，请手动输入', 'error', 'editPurchasePrice', 0);
+      addError(getErrorMessage(error, '获取价格失败，请手动输入'), 'error', 'editPurchasePrice');
     } finally {
       setIsLoadingPrice(false);
     }
   };
 
   const fetchFundNav = async () => {
-    if (!asset?.code || !formData.purchaseDate) return;
-    const code = asset.code.trim();
-    if (!/^\d{6}$/.test(code)) {
-      addError('基金代码应为6位数字', 'error', 'editPurchasePrice', 0);
+    if (!asset?.code || !formData.purchaseDate) {
       return;
     }
+
+    const code = asset.code.trim();
+    if (!/^\d{6}$/.test(code)) {
+      addError('基金代码应为6位数字', 'error', 'editPurchasePrice');
+      return;
+    }
+
     setIsLoadingPrice(true);
     clearFieldError('editPurchasePrice');
+
     try {
       const fundHistory = await api.fund.getNavHistory(code, formData.purchaseDate, formData.purchaseDate);
       const targetDate = formData.purchaseDate.replace(/-/g, '');
-      const targetItem = fundHistory.find((item: { date: string; unitNav: number; accumulatedNav: number }) => {
-        const itemDate = item.date.replace(/-/g, '');
-        return itemDate === targetDate;
-      });
+      const targetItem = fundHistory.find((item) => item.date.replace(/-/g, '') === targetDate);
+
       if (targetItem) {
-        setFormData(prev => ({ ...prev, purchasePrice: targetItem.unitNav.toString() }));
-        (window as any).__fundAccumulatedNav = targetItem.accumulatedNav;
+        setFormData((prev) => ({ ...prev, purchasePrice: targetItem.unitNav.toString() }));
+        window.__fundAccumulatedNav = targetItem.accumulatedNav;
         clearFieldError('editPurchasePrice');
-      } else if (fundHistory.length > 0) {
+        return;
+      }
+
+      if (fundHistory.length > 0) {
         const nearestItem = fundHistory[0];
-        setFormData(prev => ({ ...prev, purchasePrice: nearestItem.unitNav.toString() }));
-        (window as any).__fundAccumulatedNav = nearestItem.accumulatedNav;
+        setFormData((prev) => ({ ...prev, purchasePrice: nearestItem.unitNav.toString() }));
+        window.__fundAccumulatedNav = nearestItem.accumulatedNav;
         clearFieldError('editPurchasePrice');
         addError(`${formData.purchaseDate}为休假日，使用前一交易日净值：${nearestItem.unitNav.toFixed(4)}`, 'info', undefined, 5000);
-      } else {
-        addError('未获取到该日期净值数据', 'error', 'editPurchasePrice', 0);
+        return;
       }
-    } catch (error) {
+
+      addError('未获取到该日期净值数据', 'error', 'editPurchasePrice');
+    } catch (error: unknown) {
       console.error('Failed to fetch fund NAV:', error);
-      addError('获取净值失败，请手动输入', 'error', 'editPurchasePrice', 0);
+      addError('获取净值失败，请手动输入', 'error', 'editPurchasePrice');
     } finally {
       setIsLoadingPrice(false);
     }
   };
 
   const handleSave = () => {
-    if (!asset) return;
+    if (!asset) {
+      return;
+    }
 
     const isPriceValid = priceError.validateField(formData.purchasePrice);
     const isQuantityValid = quantityError.validateField(formData.quantity);
@@ -238,8 +243,8 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     }
 
     const isFund = asset.type === 'fund';
-    const accumulatedNav = isFund ? (window as any).__fundAccumulatedNav : undefined;
     const isStock = asset.type === 'a_stock' || asset.type === 'hk_stock';
+    const accumulatedNav = isFund ? window.__fundAccumulatedNav : undefined;
 
     updateAsset(asset.id, {
       name: formData.name,
@@ -248,27 +253,34 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
       accumulatedNavAtPurchase: accumulatedNav,
       quantity: parseFloat(formData.quantity),
       currency: formData.currency,
-      useClosingPrice: formData.useClosingPrice,
-      priceInputType: isStock ? (dualPrice.data ? 'adjusted' : priceInputMode) : undefined,
-      purchasePriceRaw: isStock && dualPrice.data?.raw.price !== null ? dualPrice.data?.raw.price : undefined,
-      purchasePriceAdjusted: isStock && dualPrice.data?.preAdjusted.price !== null ? dualPrice.data?.preAdjusted.price : undefined,
+      priceInputType: isStock ? (dualPrice ? 'adjusted' : priceInputMode) : undefined,
+      purchasePriceRaw: isStock && dualPrice?.raw.price !== null ? dualPrice?.raw.price : undefined,
+      purchasePriceAdjusted: isStock && dualPrice?.preAdjusted.price !== null ? dualPrice?.preAdjusted.price : undefined,
     });
-    delete (window as any).__fundAccumulatedNav;
+    delete window.__fundAccumulatedNav;
     handleClose();
   };
 
   const isNegativePrice = (price: number | null): boolean => {
-    if (price === null) return false;
+    if (price === null) {
+      return false;
+    }
     return price <= 0 || price < 0.01;
   };
 
   const formatPrice = (price: number | null): string => {
-    if (price === null) return '--';
-    if (price <= 0) return '≤ 0';
+    if (price === null) {
+      return '--';
+    }
+    if (price <= 0) {
+      return '≤ 0';
+    }
     return price.toFixed(2);
   };
 
-  if (!asset) return null;
+  if (!asset) {
+    return null;
+  }
 
   const isFund = asset.type === 'fund';
 
@@ -285,14 +297,14 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
             transition={{ duration: 0.25 }}
             onClick={handleClose}
           />
-          
+
           <motion.div
             className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-[#1c1c1e]/95 rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 backdrop-blur-xl"
             variants={dialogVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/10">
               <div>
@@ -350,8 +362,8 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                       onClick={() => {
                         if (priceInputMode !== 'raw') {
                           setPriceInputMode('raw');
-                          setDualPrice({ data: null, isLoading: false, selectedType: null });
-                          setFormData(prev => ({ ...prev, purchasePrice: '' }));
+                          setDualPrice(null);
+                          setFormData((prev) => ({ ...prev, purchasePrice: '' }));
                         }
                       }}
                       className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
@@ -367,8 +379,8 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                       onClick={() => {
                         if (priceInputMode !== 'adjusted') {
                           setPriceInputMode('adjusted');
-                          setDualPrice({ data: null, isLoading: false, selectedType: null });
-                          setFormData(prev => ({ ...prev, purchasePrice: '' }));
+                          setDualPrice(null);
+                          setFormData((prev) => ({ ...prev, purchasePrice: '' }));
                         }
                       }}
                       className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
@@ -390,8 +402,8 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                       value={formData.purchasePrice}
                       onChange={(e) => {
                         setFormData({ ...formData, purchasePrice: e.target.value });
-                        if (dualPrice.data) {
-                          setDualPrice(prev => ({ ...prev, selectedType: null }));
+                        if (dualPrice) {
+                          setDualPrice(null);
                         }
                       }}
                       placeholder={isFund ? '请输入购入单价' : (priceInputMode === 'raw' ? '输入当时实际成交价格' : '输入券商App显示的成本价')}
@@ -407,20 +419,20 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                   <button
                     type="button"
                     onClick={isFund ? fetchFundNav : fetchClosingPrice}
-                    disabled={!asset?.code || !formData.purchaseDate || isLoadingPrice || (!isFund && priceInputMode === 'adjusted')}
+                    disabled={!asset.code || !formData.purchaseDate || isLoadingPrice || (!isFund && priceInputMode === 'adjusted')}
                     className="py-2.5 px-4 rounded-xl border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm font-medium"
                   >
                     {isFund ? '获取净值' : '获取收盘价'}
                   </button>
                 </div>
 
-                {!isFund && dualPrice.data && (
+                {!isFund && dualPrice && (
                   <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
                     <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
-                      <span>{formData.purchaseDate} 收盘价：前复权 ¥{formatPrice(dualPrice.data.preAdjusted.price)}</span>
-                      <span>除权价 ¥{formatPrice(dualPrice.data.raw.price)}（当时实际价格）</span>
+                      <span>{formData.purchaseDate} 收盘价：前复权 ¥{formatPrice(dualPrice.preAdjusted.price)}</span>
+                      <span>除权价 ¥{formatPrice(dualPrice.raw.price)}（当时实际价格）</span>
                     </div>
-                    {isNegativePrice(dualPrice.data.preAdjusted.price) && (
+                    {isNegativePrice(dualPrice.preAdjusted.price) && (
                       <div className="mt-1 text-[10px] text-red-500">
                         ⚠️ 前复权价格极低，建议清除后手动输入除权价
                       </div>
@@ -440,7 +452,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                   placeholder="0.00"
                 />
               </div>
-
             </div>
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-black/5 dark:border-white/10 bg-[#fafafa] dark:bg-[#1c1c1e]/50 rounded-b-2xl">

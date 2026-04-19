@@ -65,10 +65,10 @@ export function AssetAllocationChart() {
           box-shadow: 0 4px 24px ${isDark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.08)'};
           border-radius: 10px;
         `,
-        formatter: (params: any) => {
-          const name = params.name || '';
-          const value = Number(params.value) || 0;
-          const percent = params.percent || 0;
+        formatter: (params: echarts.TooltipComponentFormatterCallbackParams) => {
+          const name = 'name' in params ? params.name || '' : '';
+          const value = 'value' in params ? Number(params.value) || 0 : 0;
+          const percent = 'percent' in params ? Number(params.percent) || 0 : 0;
           return `<div style="font-weight:510;margin-bottom:2px">${name}</div><div style="color:${isDark ? '#a1a1a6' : '#6e6e73'};font-size:12px">¥${value.toLocaleString('zh-CN')} · ${percent.toFixed(1)}%</div>`;
         }
       },

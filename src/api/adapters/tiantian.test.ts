@@ -10,7 +10,7 @@ async function flushMicrotasks(): Promise<void> {
 describe('getFundQuote', () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (window as any).jsonpgz;
+    delete window.jsonpgz;
   });
 
   it('serializes JSONP requests so concurrent fund refreshes do not overwrite each other', async () => {
@@ -24,7 +24,7 @@ describe('getFundQuote', () => {
 
     expect(appendChildSpy).toHaveBeenCalledTimes(1);
 
-    (window as any).jsonpgz({
+    window.jsonpgz?.({
       fundcode: '000001',
       name: '基金一号',
       dwjz: '1.0000',
@@ -36,7 +36,7 @@ describe('getFundQuote', () => {
 
     expect(appendChildSpy).toHaveBeenCalledTimes(2);
 
-    (window as any).jsonpgz({
+    window.jsonpgz?.({
       fundcode: '000002',
       name: '基金二号',
       dwjz: '1.2000',

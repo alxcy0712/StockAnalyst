@@ -37,8 +37,8 @@ function MetricCard({
   index?: number;
 }) {
   return (
-    <div 
-      className="group bg-[#f5f5f7] dark:bg-[#1c1c1e]/60 rounded-2xl p-3.5 
+    <div
+      className="bg-[#f5f5f7] dark:bg-[#1c1c1e]/60 rounded-2xl p-3.5
                  hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-xl
                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
                  opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
@@ -46,14 +46,20 @@ function MetricCard({
     >
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className="text-[11px] font-medium text-[#86868b] dark:text-[#8e8e93]">{label}</span>
-        <div className="relative">
-          <HelpCircle className="w-3 h-3 text-[#c7c7cc] dark:text-[#636366] cursor-help transition-colors group-hover:text-[#8e8e93]" />
+        <div className="relative group">
+          <button
+            type="button"
+            aria-label={`${label}说明`}
+            className="flex items-center justify-center text-[#c7c7cc] dark:text-[#636366] transition-colors group-hover:text-[#8e8e93] focus:outline-none focus-visible:text-[#8e8e93]"
+          >
+            <HelpCircle className="w-3 h-3 cursor-help" />
+          </button>
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 
                           bg-white/90 dark:bg-[#1c1c1e]/95 
                           backdrop-blur-xl
                           text-[#1d1d1f] dark:text-[#f5f5f7] 
                           text-[11px] rounded-xl 
-                          opacity-0 invisible group-hover:opacity-100 group-hover:visible 
+                          opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible 
                           transition-all duration-200 z-50 
                           shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]
                           border border-[#e5e5ea] dark:border-[#38383a]">
@@ -349,9 +355,12 @@ export function NavChart() {
         borderColor: colors.tooltipBorder,
         borderWidth: 1,
         textStyle: { color: colors.tooltipText },
-        formatter: (params: any) => {
-          const normalizedParams = Array.isArray(params) ? params : [params];
-          const point = activeSeries[normalizedParams[0]?.dataIndex ?? 0];
+        formatter: (params: echarts.TooltipComponentFormatterCallbackParams | echarts.TooltipComponentFormatterCallbackParams[]) => {
+          const firstParam = Array.isArray(params) ? params[0] : params;
+          const dataIndex = firstParam && typeof firstParam === 'object' && 'dataIndex' in firstParam
+            ? Number(firstParam.dataIndex)
+            : 0;
+          const point = activeSeries[dataIndex];
           if (!point) return '';
           return chartMode === 'scale'
             ? buildScaleTooltip(point as PortfolioScalePoint)

@@ -3,8 +3,6 @@ import type { Asset } from '../types';
 import { calculatePortfolioSeries, clearPortfolioSeriesCache } from './portfolioSeries';
 
 vi.mock('../api/adapters/eastmoney', () => ({
-  getAStockKLineEastmoney: vi.fn(),
-  getHKStockKLineEastmoney: vi.fn(),
   getFundNavAll: vi.fn(),
   getFundNavHistory: vi.fn(),
   getFundNavOnDate: vi.fn(),
@@ -14,6 +12,12 @@ vi.mock('../api/adapters/eastmoney', () => ({
     csi300: { code: 'csi300', name: '沪深300', secid: '1.000300', description: 'A股市场代表性指数' },
     shanghai: { code: 'shanghai', name: '上证指数', secid: '1.000001', description: '上海证券交易所综合指数' },
   },
+}));
+
+vi.mock('../api/adapters/stockHistory', () => ({
+  getAStockKLine: vi.fn(),
+  getHKStockKLine: vi.fn(),
+  validateStockCode: vi.fn(),
 }));
 
 vi.mock('../api/adapters/tiantian', () => ({
@@ -35,7 +39,8 @@ vi.mock('./dataCache', () => ({
   initCache: vi.fn(),
 }));
 
-import { getAStockKLineEastmoney, getHKStockKLineEastmoney, getFundNavAll } from '../api/adapters/eastmoney';
+import { getFundNavAll } from '../api/adapters/eastmoney';
+import { getAStockKLine, getHKStockKLine } from '../api/adapters/stockHistory';
 import { getFundQuote } from '../api/adapters/tiantian';
 
 const fixedHKData = [
@@ -111,8 +116,8 @@ describe('Portfolio Data Consistency E2E Test', () => {
     vi.clearAllMocks();
     clearPortfolioSeriesCache();
 
-    vi.mocked(getHKStockKLineEastmoney).mockResolvedValue(fixedHKData.map(d => ({...d})));
-    vi.mocked(getAStockKLineEastmoney).mockResolvedValue(fixedAStockData.map(d => ({...d})));
+    vi.mocked(getHKStockKLine).mockResolvedValue(fixedHKData.map(d => ({...d})));
+    vi.mocked(getAStockKLine).mockResolvedValue(fixedAStockData.map(d => ({...d})));
 
     vi.mocked(getFundNavAll).mockImplementation((fundCode: string) => {
       if (fundCode === '001235') {

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.js",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "typecheck": "tsc -b --noEmit",
@@ -12,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.19",
     "dexie": "^4.3.0",

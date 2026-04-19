@@ -155,7 +155,7 @@ export function buildPortfolioScaleSeries(
 
   const scalePoints: PortfolioScalePoint[] = [];
   let accumulatedCostCNY = 0;
-  let activeAssetIndices: number[] = [];
+  const activeAssetIndices: number[] = [];
 
   for (const currentDate of allDays) {
     for (let i = 0; i < assetMeta.length; i++) {
@@ -361,8 +361,8 @@ export async function buildAssetPriceHistoryMaps(
           const startDate = asset.purchaseDate.replace(/-/g, '');
           const endDate = today.replace(/-/g, '');
           const klineData: KLineData[] = asset.type === 'a_stock'
-            ? await api.stock.getAStockKLineEastmoney(asset.code, 'day', startDate, endDate)
-            : await api.stock.getHKStockKLineEastmoney(asset.code, 'day', startDate, endDate);
+            ? await api.stock.getAStockKLine(asset.code, 'day', startDate, endDate)
+            : await api.stock.getHKStockKLine(asset.code, 'day', startDate, endDate);
 
           klineData.forEach((item) => {
             history.set(normalizeHistoryDate(item.date), item.close);
