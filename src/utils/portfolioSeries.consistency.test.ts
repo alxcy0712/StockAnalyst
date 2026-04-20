@@ -134,7 +134,7 @@ describe('Portfolio Data Consistency E2E Test', () => {
     });
   });
 
-  it('uses raw daily bars for stocks saved with actual trade price', async () => {
+  it('uses pre-adjusted daily bars for stock assets', async () => {
     const rawPriceAsset: Asset = {
       id: 'asset-raw-price',
       type: 'a_stock',
@@ -144,7 +144,7 @@ describe('Portfolio Data Consistency E2E Test', () => {
       purchasePrice: 1227.3,
       purchasePriceRaw: 1227.3,
       purchasePriceAdjusted: 1063.35,
-      priceInputType: 'raw',
+      priceInputType: 'adjusted',
       quantity: 1,
       currency: 'CNY',
     };
@@ -160,7 +160,7 @@ describe('Portfolio Data Consistency E2E Test', () => {
       'day',
       '20200420',
       '20200420',
-      0
+      1
     );
   });
 

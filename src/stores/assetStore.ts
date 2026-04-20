@@ -15,22 +15,21 @@ interface AssetState {
 }
 
 function normalizePersistedAsset(asset: Asset): Asset {
-  const isLegacyFetchedStock =
-    (asset.type === 'a_stock' || asset.type === 'hk_stock') &&
-    asset.priceInputType === 'adjusted' &&
-    typeof asset.purchasePriceRaw === 'number' &&
-    typeof asset.purchasePriceAdjusted === 'number' &&
-    asset.purchasePrice === asset.purchasePriceAdjusted &&
-    asset.purchasePriceRaw !== asset.purchasePriceAdjusted;
-
-  if (!isLegacyFetchedStock) {
+  if (asset.type !== 'a_stock' && asset.type !== 'hk_stock') {
     return asset;
   }
 
+  const adjustedPurchasePrice = asset.purchasePriceAdjusted ?? asset.purchasePrice;
+  const rawPurchasePrice = asset.purchasePriceRaw ?? (
+    asset.priceInputType === 'raw' ? asset.purchasePrice : undefined
+  );
+
   return {
     ...asset,
-    priceInputType: 'raw',
-    purchasePrice: asset.purchasePriceRaw!,
+    priceInputType: 'adjusted',
+    purchasePrice: adjustedPurchasePrice,
+    purchasePriceAdjusted: adjustedPurchasePrice,
+    purchasePriceRaw: rawPurchasePrice,
   };
 }
 
@@ -73,7 +72,7 @@ export const useAssetStore = create<AssetState>()(
     }),
     {
       name: 'asset-storage',
-      version: 1,
+      version: 2,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as AssetState;

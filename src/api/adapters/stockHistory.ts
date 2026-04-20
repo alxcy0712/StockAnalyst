@@ -4,8 +4,7 @@ import type {
   StockMarket,
   StockValidationResult,
 } from '../../types';
-
-const API_BASE_URL = 'http://localhost:3001';
+import { buildBackendUrl } from '../../config/application';
 
 interface StockKLineRequest {
   market: StockMarket;
@@ -34,7 +33,7 @@ export async function validateStockCode(
   code: string
 ): Promise<StockValidationResult> {
   const response = await fetch(
-    `${API_BASE_URL}/api/stock/validate?${buildQuery({ market, code })}`
+    `${buildBackendUrl('/api/stock/validate')}?${buildQuery({ market, code })}`
   );
 
   const result = await response.json();
@@ -61,7 +60,7 @@ async function fetchStockKLineEnvelope(request: StockKLineRequest): Promise<Stoc
     fqt: request.fqt ?? 1,
   });
 
-  const response = await fetch(`${API_BASE_URL}/api/stock/kline?${query}`);
+  const response = await fetch(`${buildBackendUrl('/api/stock/kline')}?${query}`);
   if (!response.ok) {
     let message = '获取股票历史数据失败';
     try {

@@ -63,9 +63,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
   const updateAsset = useAssetStore((state) => state.updateAsset);
   const { addError, clearAll, clearFieldError } = useErrorStore();
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
-  const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>(
-    asset?.priceInputType || 'adjusted'
-  );
   const [dualPrice, setDualPrice] = useState<DualPriceResult | null>(null);
 
   const priceError = useFormError({
@@ -108,7 +105,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
       quantity: asset.quantity.toString(),
       currency: asset.currency,
     });
-    setPriceInputMode(asset.priceInputType || 'adjusted');
     setDualPrice(null);
   }, [asset]);
 
@@ -167,17 +163,17 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
 
       setDualPrice(result);
 
-      if (result.raw.price !== null) {
-        setFormData((prev) => ({ ...prev, purchasePrice: result.raw.price!.toString() }));
+      if (result.preAdjusted.price !== null) {
+        setFormData((prev) => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
         clearFieldError('editPurchasePrice');
 
-        if (result.raw.isHoliday && result.raw.message) {
-          addError(result.raw.message, 'info', undefined, 5000);
+        if (result.preAdjusted.isHoliday && result.preAdjusted.message) {
+          addError(result.preAdjusted.message, 'info', undefined, 5000);
         }
         return;
       }
 
-      addError(result.raw.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice');
+      addError(result.preAdjusted.message || '未获取到该日期价格数据', 'error', 'editPurchasePrice');
     } catch (error: unknown) {
       console.error('Failed to fetch closing price:', error);
       addError(getErrorMessage(error, '获取价格失败，请手动输入'), 'error', 'editPurchasePrice');
@@ -248,7 +244,7 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
     const accumulatedNav = isFund ? window.__fundAccumulatedNav : undefined;
     const parsedPurchasePrice = parseFloat(formData.purchasePrice);
     const stockPricePayload = isStock
-      ? buildStockPricePayload(parsedPurchasePrice, priceInputMode, dualPrice, {
+      ? buildStockPricePayload(parsedPurchasePrice, dualPrice, {
           raw: asset.purchasePriceRaw,
           adjusted: asset.purchasePriceAdjusted,
         })
@@ -361,45 +357,6 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                   {isFund ? '单位净值' : '购入单价'}
                 </label>
 
-                {!isFund && (
-                  <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 mb-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (priceInputMode !== 'raw') {
-                          setPriceInputMode('raw');
-                          setDualPrice(null);
-                          setFormData((prev) => ({ ...prev, purchasePrice: '' }));
-                        }
-                      }}
-                      className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
-                        priceInputMode === 'raw'
-                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      当时实际价格
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (priceInputMode !== 'adjusted') {
-                          setPriceInputMode('adjusted');
-                          setDualPrice(null);
-                          setFormData((prev) => ({ ...prev, purchasePrice: '' }));
-                        }
-                      }}
-                      className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
-                        priceInputMode === 'adjusted'
-                          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      账户成本价
-                    </button>
-                  </div>
-                )}
-
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
@@ -412,7 +369,7 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                           setDualPrice(null);
                         }
                       }}
-                      placeholder={isFund ? '请输入购入单价' : (priceInputMode === 'raw' ? '输入当时实际成交价格' : '输入券商App显示的成本价')}
+                      placeholder={isFund ? '请输入购入单价' : '输入前复权成本价'}
                       className={`w-full px-3.5 py-2.5 bg-white dark:bg-[#2c2c2e] border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/30 text-[#1d1d1f] dark:text-white placeholder-[#86868b] transition-all ${getInputErrorClass(priceError.hasError)}`}
                     />
                     {isLoadingPrice && (
@@ -425,25 +382,25 @@ export function EditAssetDialog({ asset, isOpen, onClose }: EditAssetDialogProps
                   <button
                     type="button"
                     onClick={isFund ? fetchFundNav : fetchClosingPrice}
-                    disabled={!asset.code || !formData.purchaseDate || isLoadingPrice || (!isFund && priceInputMode === 'adjusted')}
+                    disabled={!asset.code || !formData.purchaseDate || isLoadingPrice}
                     className="py-2.5 px-4 rounded-xl border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm font-medium"
                   >
-                    {isFund ? '获取净值' : '获取收盘价'}
+                    {isFund ? '获取净值' : '获取前复权价'}
                   </button>
                 </div>
 
                 {!isFund && dualPrice && (
                   <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
-                    <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
-                      <span>{formData.purchaseDate} 收盘价：前复权参考价 ¥{formatPrice(dualPrice.preAdjusted.price)}</span>
-                      <span>除权价 ¥{formatPrice(dualPrice.raw.price)}（当时实际价格）</span>
+                    <div className="flex flex-col gap-1 text-xs text-[#86868b] dark:text-[#8e8e93]">
+                      <span>{dualPrice.preAdjusted.actualDate ?? formData.purchaseDate} 前复权收盘价：¥{formatPrice(dualPrice.preAdjusted.price)}</span>
+                      <span>{dualPrice.raw.actualDate ?? formData.purchaseDate} 除权收盘价：¥{formatPrice(dualPrice.raw.price)}</span>
                     </div>
                     <div className="mt-1 text-[10px] text-[#86868b] dark:text-[#8e8e93] leading-4">
-                      前复权参考价用于和复权走势对齐。不同软件的复权基准日、分红送转口径、更新时间不同，所以结果会有差异；实际成交请看除权价。
+                      股票买入单价统一按前复权口径保存，当天实际价格参考除权价，组合净值和历史走势按前复权口径计算。
                     </div>
                     {isNegativePrice(dualPrice.preAdjusted.price) && (
                       <div className="mt-1 text-[10px] text-red-500">
-                        ⚠️ 前复权价格极低，建议清除后手动输入除权价
+                        ⚠️ 前复权价格极低，请核对该日期并手动输入前复权成本价
                       </div>
                     )}
                   </div>

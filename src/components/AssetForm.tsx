@@ -153,7 +153,6 @@ export function AssetForm() {
   });
   const [validationRetryToken, setValidationRetryToken] = useState(0);
 
-  const [priceInputMode, setPriceInputMode] = useState<'raw' | 'adjusted'>('raw');
   const [dualPrice, setDualPrice] = useState<DualPriceResult | null>(null);
 
   const codeError = useFormError({
@@ -214,7 +213,6 @@ export function AssetForm() {
       quantity: '',
       currency: 'CNY',
     });
-    setPriceInputMode('raw');
     setDualPrice(null);
     setStockHistoryValidation({ status: 'idle', message: null });
     setValidationRetryToken(0);
@@ -251,17 +249,17 @@ export function AssetForm() {
 
       setDualPrice(result);
 
-      if (result.raw.price !== null) {
-        setFormData((prev) => ({ ...prev, purchasePrice: result.raw.price!.toString() }));
+      if (result.preAdjusted.price !== null) {
+        setFormData((prev) => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
         clearFieldError('purchasePrice');
 
-        if (result.raw.isHoliday && result.raw.message) {
-          addError(result.raw.message, 'info', undefined, 5000);
+        if (result.preAdjusted.isHoliday && result.preAdjusted.message) {
+          addError(result.preAdjusted.message, 'info', undefined, 5000);
         }
         return;
       }
 
-      throw new Error(result.raw.message || '获取价格失败');
+      throw new Error(result.preAdjusted.message || '获取价格失败');
     } catch (error: unknown) {
       console.error('Failed to fetch closing price:', error);
       addError(getErrorMessage(error, '获取价格失败，请手动输入'), 'error', 'purchasePrice');
@@ -454,7 +452,7 @@ export function AssetForm() {
     const accumulatedNav = isFund ? window.__fundAccumulatedNav : undefined;
     const parsedPurchasePrice = parseFloat(formData.purchasePrice);
     const stockPricePayload = isStock
-      ? buildStockPricePayload(parsedPurchasePrice, priceInputMode, dualPrice)
+      ? buildStockPricePayload(parsedPurchasePrice, dualPrice)
       : {};
 
     addAsset({
@@ -481,7 +479,6 @@ export function AssetForm() {
       quantity: '',
       currency: 'CNY',
     });
-    setPriceInputMode('raw');
     setDualPrice(null);
     setStockHistoryValidation({ status: 'idle', message: null });
     clearAll();
@@ -710,45 +707,6 @@ export function AssetForm() {
                 <div>
                   <label className="block text-sm font-medium text-[#424245] dark:text-[#a1a1a6] mb-1.5">购入单价</label>
 
-                  {!isFund && (
-                    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (priceInputMode !== 'raw') {
-                            setPriceInputMode('raw');
-                            setDualPrice(null);
-                            setFormData((prev) => ({ ...prev, purchasePrice: '' }));
-                          }
-                        }}
-                        className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
-                          priceInputMode === 'raw'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        当时实际价格
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (priceInputMode !== 'adjusted') {
-                            setPriceInputMode('adjusted');
-                            setDualPrice(null);
-                            setFormData((prev) => ({ ...prev, purchasePrice: '' }));
-                          }
-                        }}
-                        className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-md transition-all ${
-                          priceInputMode === 'adjusted'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        账户成本价
-                      </button>
-                    </div>
-                  )}
-
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
@@ -761,7 +719,7 @@ export function AssetForm() {
                             setDualPrice(null);
                           }
                         }}
-                        placeholder={isFund ? '请输入购入单价' : (priceInputMode === 'raw' ? '输入当时实际成交价格' : '输入券商App显示的成本价')}
+                        placeholder={isFund ? '请输入购入单价' : '输入前复权成本价'}
                         className={`${inputBaseClass} ${getInputErrorClass(priceError.hasError)}`}
                       />
                       {isLoadingPrice && (
@@ -774,27 +732,27 @@ export function AssetForm() {
                     <motion.button
                       type="button"
                       onClick={isFund ? fetchFundNavOnDate : fetchClosingPrice}
-                      disabled={!formData.code || !formData.purchaseDate || isLoadingPrice || (!isFund && priceInputMode === 'adjusted')}
+                      disabled={!formData.code || !formData.purchaseDate || isLoadingPrice}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="py-2 px-4 rounded-lg border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-sm"
                     >
-                      {isFund ? '获取净值' : '获取收盘价'}
+                      {isFund ? '获取净值' : '获取前复权价'}
                     </motion.button>
                   </div>
 
                   {!isFund && dualPrice && (
                     <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
-                      <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
-                        <span>{formData.purchaseDate} 收盘价：前复权参考价 ¥{formatPrice(dualPrice.preAdjusted.price)}</span>
-                        <span>除权价 ¥{formatPrice(dualPrice.raw.price)}（当时实际价格）</span>
+                      <div className="flex flex-col gap-1 text-xs text-[#86868b] dark:text-[#8e8e93]">
+                        <span>{dualPrice.preAdjusted.actualDate ?? formData.purchaseDate} 前复权收盘价：¥{formatPrice(dualPrice.preAdjusted.price)}</span>
+                        <span>{dualPrice.raw.actualDate ?? formData.purchaseDate} 除权收盘价：¥{formatPrice(dualPrice.raw.price)}</span>
                       </div>
                       <div className="mt-1 text-[10px] text-[#86868b] dark:text-[#8e8e93] leading-4">
-                        前复权参考价用于和复权走势对齐。不同软件的复权基准日、分红送转口径、更新时间不同，所以结果会有差异；实际成交请看除权价。
+                        股票买入单价统一按前复权口径保存，当天实际价格参考除权价，组合净值和历史走势按前复权口径计算。
                       </div>
                       {isNegativePrice(dualPrice.preAdjusted.price) && (
                         <div className="mt-1 text-[10px] text-red-500">
-                          ⚠️ 前复权价格极低，建议清除后手动输入除权价
+                          ⚠️ 前复权价格极低，请核对该日期并手动输入前复权成本价
                         </div>
                       )}
                     </div>

@@ -59,7 +59,7 @@ vi.mock('react-datepicker', () => ({
       className={className}
       value={selected ? selected.toISOString().slice(0, 10) : ''}
       onChange={(event) => {
-        onChange(event.target.value ? new Date(event.target.value) : null);
+        onChange(event.target.value ? new Date(`${event.target.value}T12:00:00`) : null);
       }}
     />
   ),
@@ -113,7 +113,7 @@ describe('AssetForm', () => {
     });
   });
 
-  it('fills raw closing price and shows adjusted-price explanation in actual-price mode', async () => {
+  it('fills pre-adjusted closing price and shows the adjusted-price explanation for stocks', async () => {
     mockValidateCode.mockResolvedValue({
       valid: true,
       market: 'a_stock',
@@ -151,7 +151,7 @@ describe('AssetForm', () => {
       expect(mockValidateCode).toHaveBeenCalledWith('a_stock', '600519');
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '获取收盘价' }));
+    fireEvent.click(screen.getByRole('button', { name: '获取前复权价' }));
 
     await waitFor(() => {
       expect(getDualClosingPriceWithFallback).toHaveBeenCalledWith(
@@ -160,12 +160,13 @@ describe('AssetForm', () => {
         '2020-04-20',
         7
       );
-      expect(screen.getByDisplayValue('1227.3')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('1063.35')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('2020-04-20 收盘价：前复权参考价 ¥1063.35')).toBeInTheDocument();
+    expect(screen.getByText('2020-04-20 前复权收盘价：¥1063.35')).toBeInTheDocument();
+    expect(screen.getByText('2020-04-20 除权收盘价：¥1227.30')).toBeInTheDocument();
     expect(
-      screen.getByText(/不同软件的复权基准日、分红送转口径、更新时间不同/)
+      screen.getByText(/当天实际价格参考除权价/)
     ).toBeInTheDocument();
   });
 

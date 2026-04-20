@@ -1,98 +1,106 @@
 # 金融资产模拟回测
 
-一个纯前端实现的金融资产回测工具，支持A股、港股和基金的综合净值分析。
+一个以前端为主、Node 数据服务为辅的金融资产回测工具。A 股和港股历史数据通过本地后端从 Supabase 数据库读取，基金历史净值通过后端代理抓取东方财富，资产持仓和前端缓存继续保存在浏览器本地。
+
+后端访问地址集中定义在 [src/config/application.ts](/Users/liuxiaochen/Desktop/有意思/ai/StockAnalyst/src/config/application.ts:1)。
 
 ## 文档导航
 
 | 文档 | 说明 |
 |-----|------|
-| [README.md](./README.md) | 项目介绍、快速开始、使用说明（本文档） |
-| [API_INTERFACES.md](./API_INTERFACES.md) | 外部数据源接口详细文档 |
+| [README.md](./README.md) | 项目介绍、启动方式、使用说明 |
+| [API_INTERFACES.md](./API_INTERFACES.md) | 运行时接口、外部数据源、后端接口契约 |
+| [database/README.md](./database/README.md) | Supabase 表结构、AKShare 导入脚本、批量导入说明 |
 
-## 功能特点
+## 当前能力
 
-- 支持多种资产类型：A股、港股、基金
-- 自动汇率换算：统一换算为人民币(CNY)显示
-- 实时数据获取：基金使用估算净值，交易日提供参考值
-- 综合净值走势：可视化展示资产组合走势，支持与沪深300/上证指数对比
-- 本地数据存储：所有数据存储在浏览器本地
-- 历史净值获取：支持获取基金购入日到现在的完整历史净值
+- 支持 A 股、港股、基金的组合回测和净值走势展示
+- 股票历史数据基于数据库宽表，支持不复权、前复权、后复权三套价格
+- 股票录入时先识别名称，再校验该证券是否已经导入数据库
+- 基金实时净值来自天天基金，基金历史净值来自东方财富代理接口
+- 支持沪深300、上证指数基准对比
+- 资产数据、汇率缓存、历史序列缓存保存在浏览器本地
+
+## 系统架构
+
+### 前端
+
+- React + TypeScript 单页应用
+- Zustand 管理资产和全局状态
+- IndexedDB 与 localStorage 缓存组合历史序列和用户资产
+
+### 后端数据服务
+
+- `server/index.js` 提供本地 HTTP 服务，默认端口 `3001`
+- `/api/fundnav/*` 负责代理东方财富基金历史净值接口
+- `/api/stock/*` 负责股票代码校验和历史 K 线查询
+
+### 股票历史数据库
+
+- `server/stockService.js` 使用 Supabase 客户端访问数据库
+- `server/providers/database.js` 从 `stock_symbols` 和 `stock_daily_bars` 读取日线数据
+- `database/import_akshare_history.py` 使用 AKShare 拉取历史数据并写入 Supabase
 
 ## 技术栈
 
 | 类别 | 技术 |
 |-----|------|
-| **框架** | React 19 + TypeScript 5.3 |
-| **构建工具** | Vite 6 |
-| **样式** | Tailwind CSS 4 |
-| **图表** | ECharts 5 |
-| **状态管理** | Zustand |
-| **数据存储** | 浏览器 localStorage + IndexedDB |
-| **测试** | Vitest + React Testing Library |
-| **动画** | Framer Motion |
+| 前端框架 | React 19 + TypeScript 5.9 |
+| 构建工具 | Vite 7 |
+| 样式 | Tailwind CSS 3.4 + `@tailwindcss/vite` |
+| 图表 | ECharts 6 |
+| 状态管理 | Zustand |
+| 后端服务 | Express 5 |
+| 数据库 | Supabase Postgres |
+| 股票导入 | Python + AKShare |
+| 测试 | Vitest + React Testing Library |
+| 动画 | Framer Motion |
 
-## 数据源
+## 数据来源
 
-| 市场 | 数据源 | 说明 |
-|-----|-------|-----|
-| A股 | 东方财富 | 历史K线数据 |
-| 港股 | 东方财富 | 历史K线数据 |
-| 基金 | 天天基金网 + 东方财富 | 实时净值、历史净值 |
-| 汇率 | 东方财富 | 实时汇率 |
-
-## 接口文档
-
-详细的外部接口文档请参阅 **[API_INTERFACES.md](./API_INTERFACES.md)**，包含：
-
-- 东方财富 (Eastmoney) - A股/港股K线、基金净值、基准指数
-- 天天基金 (Tiantian Fund) - 基金实时行情
-- 腾讯财经 (Tencent Finance) - 股票实时行情（备用）
-- 汇率API (Exchange Rate) - 实时和历史汇率
-- 后端代理服务 - 解决CORS限制
+| 功能 | 数据来源 | 接入方式 |
+|-----|----------|---------|
+| A股历史日线 | Supabase `stock_daily_bars` | 前端调用本地后端 `/api/stock/kline` |
+| 港股历史日线 | Supabase `stock_daily_bars` | 前端调用本地后端 `/api/stock/kline` |
+| 股票实时行情与名称识别 | 腾讯财经 | 前端 JSONP |
+| 股票可用性校验 | Supabase `stock_symbols` | 前端调用本地后端 `/api/stock/validate` |
+| 基金实时净值 | 天天基金 | 前端 JSONP |
+| 基金历史净值 | 东方财富 F10 | 后端代理 `/api/fundnav/*` |
+| 基准指数 | 东方财富 | 前端直接请求 |
+| 实时汇率 | open.er-api | 前端直接请求 |
+| 历史汇率 | 内置汇率表 | 前端本地计算 |
 
 ## 项目结构
 
-```
+```text
 StockAnalyst/
-├── server/                     # 后端代理服务
-│   └── index.js               # Express代理服务（解决CORS问题）
+├── server/
+│   ├── index.js                  # 本地数据服务入口
+│   ├── stockService.js           # 股票历史查询服务层
+│   └── providers/
+│       ├── common.js             # Provider 公共工具
+│       └── database.js           # Supabase 数据库 Provider
+├── database/
+│   ├── 02_create_tables.sql      # Supabase 建表脚本
+│   ├── import_akshare_history.py # 股票历史导入脚本
+│   ├── symbols.example.csv       # 批量导入示例
+│   └── README.md                 # 数据库与导入说明
 ├── src/
-│   ├── api/                    # API层
-│   │   ├── index.ts           # API统一导出
-│   │   └── adapters/          # 数据源适配器
-│   │       ├── eastmoney.ts   # 东方财富（股票K线、基金净值、基准指数）
-│   │       ├── tiantian.ts    # 天天基金（实时行情）
-│   │       ├── tencent.ts     # 腾讯财经（备用）
-│   │       └── exchange.ts    # 汇率服务
-│   ├── components/             # React组件
-│   │   ├── AssetForm.tsx      # 资产录入表单
-│   │   ├── AssetList.tsx      # 资产列表
-│   │   ├── NavChart.tsx       # 净值图表（ECharts）
-│   │   ├── AssetAllocationChart.tsx  # 资产配置饼图
-│   │   ├── EditAssetDialog.tsx       # 编辑资产弹窗
-│   │   └── GlobalToast.tsx    # 全局提示组件
-│   ├── stores/                 # 状态管理（Zustand）
-│   │   ├── assetStore.ts       # 资产数据存储
-│   │   ├── benchmarkStore.ts   # 基准指数选择
-│   │   ├── themeStore.ts       # 主题（明暗模式）
-│   │   ├── exchangeStore.ts    # 汇率状态管理
-│   │   └── errorStore.ts       # 全局错误状态
-│   ├── types/                  # TypeScript类型定义
-│   │   └── index.ts
-│   ├── utils/                  # 工具函数
-│   │   ├── calculator.ts       # 收益计算工具
-│   │   ├── portfolioSeries.ts  # 组合净值序列计算
-│   │   ├── dataCache.ts        # IndexedDB数据缓存
-│   │   └── priceFallback.ts    # 价格获取降级策略
-│   ├── hooks/                  # 自定义React Hooks
-│   │   └── useFormError.ts     # 表单错误处理
-│   └── test/                   # 测试配置
-│       └── setup.ts            # Vitest测试配置
-├── index.html
-├── vite.config.ts
-├── package.json
-├── API_INTERFACES.md           # 外部接口文档
-└── README.md
+│   ├── api/
+│   │   ├── index.ts
+│   │   └── adapters/
+│   │       ├── stockHistory.ts   # 本地股票历史接口
+│   │       ├── eastmoney.ts      # 基金历史净值、基准指数
+│   │       ├── tiantian.ts       # 基金实时净值
+│   │       ├── tencent.ts        # 股票实时行情
+│   │       └── exchange.ts       # 汇率
+│   ├── components/
+│   ├── stores/
+│   ├── types/
+│   └── utils/
+├── API_INTERFACES.md
+├── README.md
+└── package.json
 ```
 
 ## 快速开始
@@ -103,200 +111,123 @@ StockAnalyst/
 npm install
 ```
 
-### 2. 启动后端代理服务
+### 2. 配置后端环境变量
 
-基金历史净值API存在CORS限制，需要启动后端代理服务：
+股票历史数据查询依赖 Supabase。服务读取以下两个环境变量：
 
 ```bash
-cd server
-node index.js
+export SUPABASE_URL='https://your-project.supabase.co'
+export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'
 ```
 
-后端服务默认运行在 `http://localhost:3001`
+`service_role` key 只应保留在服务端环境中。
 
-### 3. 启动开发服务器
+### 3. 初始化股票历史数据库
+
+先按 [database/README.md](./database/README.md) 完成建表和导入。最小可用流程如下：
+
+```bash
+pip install -r database/requirements.txt
+python3 database/import_akshare_history.py \
+  --symbols-file database/symbols.example.csv \
+  --adjust-modes raw,qfq,hfq
+```
+
+当前股票录入和股票历史回测只支持已经导入数据库的证券。
+
+### 4. 启动本地数据服务
+
+```bash
+npm run server
+```
+
+服务地址：`http://localhost:3001`
+
+### 5. 启动前端开发服务器
 
 ```bash
 npm run dev
 ```
 
-访问 `http://localhost:5173`
+访问：`http://localhost:5173`
 
-## 构建步骤
-
-### 开发环境
+## 常用开发流程
 
 ```bash
-# 安装依赖
-npm install
+# 终端 1
+export SUPABASE_URL='https://your-project.supabase.co'
+export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'
+npm run server
 
-# 启动后端代理（终端1）
-cd server && node index.js
-
-# 启动前端开发服务器（终端2）
+# 终端 2
 npm run dev
 ```
-
-### 生产构建
-
-```bash
-# 构建前端资源
-npm run build
-```
-
-构建产物输出到 `dist` 目录
-
-## 上线部署
-
-### 方案一：Vercel 部署（推荐）
-
-Vercel 可以一键部署 Node.js 后端服务：
-
-1. 将项目推送到 GitHub
-2. 在 Vercel 官网导入项目
-3. 配置构建命令：
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-4. 需要配置环境变量或使用 Vercel Serverless Functions 部署后端代理
-
-### 方案二：Docker 部署
-
-创建 `Dockerfile`:
-
-```dockerfile
-FROM node:20-alpine
-
-WORKDIR /app
-
-# 复制后端代码
-COPY server ./server
-COPY package.json ./
-RUN npm install
-
-# 构建前端
-RUN npm run build
-
-# 安装生产依赖
-RUN npm install -g serve
-
-EXPOSE 3000
-
-CMD ["sh", "-c", "node server/index.js & serve -s dist -p 3000"]
-```
-
-构建运行：
-
-```bash
-docker build -t stock-analyst .
-docker run -p 3000:3000 stock-analyst
-```
-
-### 方案三：传统服务器部署
-
-1. **构建前端**：
-```bash
-npm run build
-```
-
-2. **部署后端**：
-```bash
-cd server
-npm install express
-node index.js &
-```
-
-3. **配置 Nginx**：
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # 前端静态文件
-    location / {
-        root /var/www/stock-analyst/dist;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API代理
-    location /api/ {
-        proxy_pass http://localhost:3001/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### 部署注意事项
-
-1. **后端代理**：基金历史净值获取需要后端代理服务解决CORS问题
-2. **环境变量**：如需自定义后端端口，修改 `server/index.js` 中的 `PORT` 变量
-3. **HTTPS**：生产环境建议使用 HTTPS
 
 ## 使用说明
 
-### 1. 添加资产
+### 添加股票
 
-点击"添加资产"按钮：
-- 选择资产类型（A股/港股/基金）
-- 输入资产代码（如：007466）
-- 选择购入日期
-- 获取购入日净值（基金）或手动输入购入单价
-- 输入购买数量
-- 选择货币类型
+- 输入 6 位 A 股代码或 5 位港股代码
+- 前端会通过腾讯财经尝试识别名称
+- 后端会校验该证券是否已经存在于 Supabase 历史库中
+- 校验通过后，系统才会使用数据库历史数据计算回测曲线
 
-### 2. 查看走势
+### 股票买入价模式
 
-添加资产后，系统会自动：
-- 获取从购入日到现在的完整历史数据
-- 计算每日总资产净值
-- 展示综合净值走势图
+- A 股和港股买入单价统一按前复权价格保存
+- 自动取价会回填买入日的前复权收盘价
+- 组合净值和股票历史走势统一使用前复权口径
 
-支持基准对比（沪深300/上证指数）
+### 添加基金
 
-### 3. 数据说明
+- 基金名称和实时估算净值来自天天基金
+- 指定日期净值和完整历史净值来自东方财富代理接口
+- 遇到休市日时，系统会回退到最近一个可用交易日净值
 
-- **净值基准**：以总成本为基准，初始净值为100
-- **累计收益率**：(当前总资产 - 总成本) / 总成本
-- **最大回撤**：从历史最高点到最低点的最大跌幅
+### 基准与汇率
 
-### 4. 指标卡片说明
+- 基准指数使用东方财富日线
+- 港股与美元资产会自动换算成人民币
+- 实时汇率失败时，系统会回退到内置月度汇率表
 
-| 指标 | 说明 |
-|------|------|
-| 最新总资产 | 当前投资组合的总市值，基于最新价格计算 |
-| 累计收益 | (当前总资产 - 总成本) / 总成本 × 100% |
-| 最大回撤 | 从历史最高点到最低点的最大跌幅，衡量投资风险 |
-| 年化收益率 | 将累计收益按持有时间年化后的收益率，便于不同投资周期比较 |
-| 持股天数 | 从最早购买资产到今天持有的总天数 |
-| 最大连涨/连跌 | 连续上涨/下跌的最大天数，反映趋势持续性 |
-| 波动率 | 收益率的标准差，衡量投资组合的价格波动程度 |
-| 夏普比率 | (年化收益率 - 无风险利率) / 波动率，衡量风险调整后的收益，>1表示较好 |
-| 卡玛比率 | 年化收益率 / 最大回撤，衡量每承担1%最大回撤获得的收益，>1表示收益能覆盖风险 |
-| 超额收益 (Alpha) | 组合收益减去基准收益，正值表示跑赢大盘 |
+## 接口文档
 
-## 更新日志
+运行时接口和外部数据源说明见 [API_INTERFACES.md](./API_INTERFACES.md)。
 
-### 最新改动
-- 移除周K/月K视图：组合的K线数据基于持仓计算，非真实市场K线，蜡烛图形式缺乏实际参考价值
-- 简化UI：移除周期切换按钮，统一使用日线视图展示资产组合走势
-- 优化缓存：移除K线数据缓存，减少IndexedDB存储占用
+## 部署说明
+
+### 运行组件
+
+- 前端静态资源
+- Node 数据服务
+- Supabase 数据库
+
+### 生产环境注意事项
+
+- `SUPABASE_SERVICE_ROLE_KEY` 只应存在于 Node 服务所在环境
+- 需要定期执行导入脚本，股票历史库才会持续更新
+- 前端通过 [src/config/application.ts](/Users/liuxiaochen/Desktop/有意思/ai/StockAnalyst/src/config/application.ts:1) 读取后端地址
+- 后端服务端口当前定义在 [server/index.js](/Users/liuxiaochen/Desktop/有意思/ai/StockAnalyst/server/index.js:5)
+
+部署时先统一前端配置地址和后端监听端口，再发布前端资源。
 
 ## 常见问题
 
-### 1. 基金历史净值获取失败
+### 股票代码校验失败
 
-确保后端代理服务正在运行：
+出现“数据库中暂无该资产的历史数据”时，先把对应证券导入 `stock_symbols` 和 `stock_daily_bars`。
+
+### 股票历史接口返回数据库未配置
+
+确认 `SUPABASE_URL` 和 `SUPABASE_SERVICE_ROLE_KEY` 已经在启动 `npm run server` 的同一终端中导出。
+
+### 基金历史净值获取失败
+
+确认本地数据服务已经启动：
+
 ```bash
-cd server && node index.js
+npm run server
 ```
-
-### 2. CORS 错误
-
-检查后端代理是否正常启动，端口是否为 3001
-
-### 3. 数据不更新
-
-刷新页面，数据存储在浏览器 localStorage 中
 
 ## 浏览器支持
 
@@ -307,7 +238,7 @@ cd server && node index.js
 
 ## 免责声明
 
-本项目仅用于学习和研究目的，不构成任何投资建议。投资者应当独立判断，自行承担投资风险。所有数据来自公开API，仅供参考。
+本项目用于学习、研究和个人分析，不构成投资建议。所有数据来自公开数据源，投资决策请自行判断。
 
 ## License
 

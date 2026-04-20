@@ -1,4 +1,5 @@
 import type { KLineData, BenchmarkIndex, BenchmarkConfig, BenchmarkNavPoint } from '../../types';
+import { buildBackendUrl } from '../../config/application';
 
 const EASTMONEY_KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
 
@@ -18,7 +19,7 @@ export async function getFundNavHistory(
     const edate = endDate ? ensureHyphen(endDate) : '';
     
     // 使用后端代理获取数据
-    const proxyUrl = `http://localhost:3001/api/fundnav/history?code=${fundCode}&startDate=${sdate}&endDate=${edate}&per=500`;
+    const proxyUrl = `${buildBackendUrl('/api/fundnav/history')}?code=${fundCode}&startDate=${sdate}&endDate=${edate}&per=500`;
     const response = await fetch(proxyUrl);
     const text = await response.text();
 
@@ -87,7 +88,7 @@ export async function getFundNavAll(fundCode: string, startDate?: string): Promi
     };
     const sdate = startDate ? ensureHyphen(startDate) : '';
 
-    const proxyUrl = `http://localhost:3001/api/fundnav/all?code=${fundCode}&startDate=${sdate}&per=500`;
+    const proxyUrl = `${buildBackendUrl('/api/fundnav/all')}?code=${fundCode}&startDate=${sdate}&per=500`;
     const response = await fetch(proxyUrl);
     const data = await response.json();
 

@@ -14,10 +14,10 @@ export interface Asset {
   quantity: number;
   currency: Currency;
 
-  // 股票价格模式
-  priceInputType?: 'raw' | 'adjusted';  // raw=除权价(实际成交价), adjusted=前复权价(账户成本)
-  purchasePriceRaw?: number;            // 除权价格（实际交易价格）
-  purchasePriceAdjusted?: number;       // 前复权价格（用于复权走势对齐）
+  // 股票价格字段
+  priceInputType?: 'raw' | 'adjusted';  // 当前统一使用 adjusted，raw 仅保留兼容字段
+  purchasePriceRaw?: number;            // 兼容保留的除权价格参考值
+  purchasePriceAdjusted?: number;       // 前复权价格，也是当前统一使用的买入单价
 }
 
 // 综合净值点
