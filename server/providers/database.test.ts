@@ -17,17 +17,20 @@ function createMockSupabaseClient({
     client: {
       from(table: string) {
         if (table === 'stock_symbols') {
-          return {
-            select() {
-              return this;
-            },
-            eq() {
-              return this;
-            },
-            single() {
-              return Promise.resolve({ data: symbolData, error: null });
-            },
-          };
+        return {
+          select() {
+            return this;
+          },
+          eq() {
+            return this;
+          },
+          maybeSingle() {
+            return Promise.resolve({ data: symbolData, error: null });
+          },
+          single() {
+            return Promise.resolve({ data: symbolData, error: null });
+          },
+        };
         }
 
         if (table === 'stock_daily_bars') {

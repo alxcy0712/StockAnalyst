@@ -3,6 +3,8 @@ import {
   STOCK_MARKETS,
   STOCK_PERIODS,
   createProviderError,
+  fetchSingleRowOrNull,
+  isSingleRowNotFoundError,
 } from './providers/common.js';
 import { fetchDatabaseKLine, checkDatabaseConnection } from './providers/database.js';
 
@@ -41,15 +43,20 @@ export function createStockHistoryService({
       return { exists: false, error: '数据库未配置' };
     }
 
-    const { data, error } = await supabaseClient
+    const symbolQuery = supabaseClient
       .from('stock_symbols')
       .select('id, name, currency')
       .eq('market', market)
-      .eq('code', code)
-      .single();
+      .eq('code', code);
 
-    if (error || !data) {
-      return { exists: false, error: error?.message || '证券不存在' };
+    const { data, error } = await fetchSingleRowOrNull(symbolQuery);
+
+    if (error && !isSingleRowNotFoundError(error)) {
+      return { exists: false, error: error.message || '证券查询失败' };
+    }
+
+    if (!data) {
+      return { exists: false, error: `数据库中暂无 ${market === 'a_stock' ? 'A股' : '港股'} ${code} 的历史数据` };
     }
 
     const { data: bars, error: barsError } = await supabaseClient
@@ -63,7 +70,7 @@ export function createStockHistoryService({
     }
 
     if (!bars || bars.length === 0) {
-      return { exists: false, error: '数据库中没有该资产的历史数据' };
+      return { exists: false, error: `数据库中暂无 ${market === 'a_stock' ? 'A股' : '港股'} ${code} 的历史数据` };
     }
 
     return { exists: true, symbol: data };

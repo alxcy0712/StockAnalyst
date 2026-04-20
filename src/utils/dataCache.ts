@@ -187,6 +187,9 @@ class DataCache {
       type: asset.type,
       purchaseDate: asset.purchaseDate,
       purchasePrice: asset.purchasePrice,
+      priceInputType: asset.priceInputType,
+      purchasePriceRaw: asset.purchasePriceRaw,
+      purchasePriceAdjusted: asset.purchasePriceAdjusted,
       quantity: asset.quantity,
       currency: asset.currency,
     };

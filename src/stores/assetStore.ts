@@ -14,6 +14,26 @@ interface AssetState {
   setHighlightedAssetId: (id: string | null) => void;
 }
 
+function normalizePersistedAsset(asset: Asset): Asset {
+  const isLegacyFetchedStock =
+    (asset.type === 'a_stock' || asset.type === 'hk_stock') &&
+    asset.priceInputType === 'adjusted' &&
+    typeof asset.purchasePriceRaw === 'number' &&
+    typeof asset.purchasePriceAdjusted === 'number' &&
+    asset.purchasePrice === asset.purchasePriceAdjusted &&
+    asset.purchasePriceRaw !== asset.purchasePriceAdjusted;
+
+  if (!isLegacyFetchedStock) {
+    return asset;
+  }
+
+  return {
+    ...asset,
+    priceInputType: 'raw',
+    purchasePrice: asset.purchasePriceRaw!,
+  };
+}
+
 export const useAssetStore = create<AssetState>()(
   persist(
     (set) => ({
@@ -53,6 +73,22 @@ export const useAssetStore = create<AssetState>()(
     }),
     {
       name: 'asset-storage',
+      version: 1,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState as AssetState;
+        }
+
+        const state = persistedState as AssetState;
+        if (!Array.isArray(state.assets)) {
+          return state;
+        }
+
+        return {
+          ...state,
+          assets: state.assets.map(normalizePersistedAsset),
+        };
+      },
     }
   )
 );

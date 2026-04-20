@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset } from '../types';
-import { calculatePortfolioSeries, clearPortfolioSeriesCache } from './portfolioSeries';
+import {
+  buildAssetPriceHistoryMaps,
+  calculatePortfolioSeries,
+  clearPortfolioSeriesCache,
+} from './portfolioSeries';
 
 vi.mock('../api/adapters/eastmoney', () => ({
   getFundNavAll: vi.fn(),
@@ -128,6 +132,36 @@ describe('Portfolio Data Consistency E2E Test', () => {
       }
       return Promise.resolve([]);
     });
+  });
+
+  it('uses raw daily bars for stocks saved with actual trade price', async () => {
+    const rawPriceAsset: Asset = {
+      id: 'asset-raw-price',
+      type: 'a_stock',
+      code: '600519',
+      name: '贵州茅台',
+      purchaseDate: '2020-04-20',
+      purchasePrice: 1227.3,
+      purchasePriceRaw: 1227.3,
+      purchasePriceAdjusted: 1063.35,
+      priceInputType: 'raw',
+      quantity: 1,
+      currency: 'CNY',
+    };
+
+    vi.mocked(getAStockKLine).mockResolvedValue([
+      { date: '20200420', open: 1221, close: 1227.3, low: 1216.8, high: 1231.5, volume: 2423864 },
+    ]);
+
+    await buildAssetPriceHistoryMaps([rawPriceAsset], true, '2020-04-20');
+
+    expect(getAStockKLine).toHaveBeenCalledWith(
+      '600519',
+      'day',
+      '20200420',
+      '20200420',
+      0
+    );
   });
 
   it('should maintain data consistency across add/refresh/delete/re-add operations', async () => {

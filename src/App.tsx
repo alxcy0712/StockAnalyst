@@ -197,9 +197,6 @@ function App() {
               <span>A股/港股：多源历史行情</span>
               <span>基金净值：天天基金</span>
               <span>历史净值：东方财富</span>
-              {rates && (
-                <span>汇率：1HKD={rates.CNY_HKD.toFixed(4)}CNY / 1USD={rates.CNY_USD.toFixed(4)}CNY {updateTime && `(${updateTime})`}</span>
-              )}
             </div>
           </div>
         </div>

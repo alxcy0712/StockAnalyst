@@ -1,6 +1,8 @@
 import {
   createProviderError,
   ensureMarketSupported,
+  fetchSingleRowOrNull,
+  isSingleRowNotFoundError,
   ensureSupportedPeriod,
   normalizeCompactDate,
 } from './common.js';
@@ -35,14 +37,15 @@ export async function fetchDatabaseKLine({
     });
   }
 
-  const { data: symbolData, error: symbolError } = await supabaseClient
+  const symbolQuery = supabaseClient
     .from('stock_symbols')
     .select('id, code, market, name')
     .eq('market', market)
-    .eq('code', code)
-    .single();
+    .eq('code', code);
 
-  if (symbolError) {
+  const { data: symbolData, error: symbolError } = await fetchSingleRowOrNull(symbolQuery);
+
+  if (symbolError && !isSingleRowNotFoundError(symbolError)) {
     throw createProviderError(`查询证券信息失败: ${symbolError.message}`, {
       code: 'symbol_query_error',
       provider: 'database',

@@ -87,3 +87,19 @@ export function ensureMarketSupported(supportsMarkets, provider, market) {
     retriable: false,
   });
 }
+
+export function isSingleRowNotFoundError(error) {
+  const message = String(error?.message ?? '');
+  return error?.code === 'PGRST116'
+    || message.includes('Cannot coerce the result to a single JSON object')
+    || message.includes('JSON object requested, multiple (or no) rows returned')
+    || message.includes('The result contains 0 rows');
+}
+
+export async function fetchSingleRowOrNull(query) {
+  if (typeof query.maybeSingle === 'function') {
+    return query.maybeSingle();
+  }
+
+  return query.single();
+}

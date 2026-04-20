@@ -10,6 +10,7 @@ import type {
   PortfolioSeriesResult,
 } from '../types';
 import { dataCache } from './dataCache';
+import { getStockHistoryFqt } from './stockPriceMode';
 
 type AssetHistoryMap = Record<string, Map<string, number>>;
 
@@ -261,7 +262,7 @@ export function buildPortfolioPerformanceSeries(assets: Asset[], scalePoints: Po
 
 // 生成稳定的资产缓存键（基于code+type+purchaseDate，而非随机ID）
 function getAssetCacheKey(asset: Asset): string {
-  return `${asset.code}_${asset.type}_${asset.purchaseDate}`;
+  return `${asset.code}_${asset.type}_${asset.purchaseDate}_${asset.priceInputType ?? 'default'}`;
 }
 
 function parsePositiveNumber(value?: string): number | null {
@@ -360,9 +361,10 @@ export async function buildAssetPriceHistoryMaps(
         } else {
           const startDate = asset.purchaseDate.replace(/-/g, '');
           const endDate = today.replace(/-/g, '');
+          const fqt = getStockHistoryFqt(asset);
           const klineData: KLineData[] = asset.type === 'a_stock'
-            ? await api.stock.getAStockKLine(asset.code, 'day', startDate, endDate)
-            : await api.stock.getHKStockKLine(asset.code, 'day', startDate, endDate);
+            ? await api.stock.getAStockKLine(asset.code, 'day', startDate, endDate, fqt)
+            : await api.stock.getHKStockKLine(asset.code, 'day', startDate, endDate, fqt);
 
           klineData.forEach((item) => {
             history.set(normalizeHistoryDate(item.date), item.close);

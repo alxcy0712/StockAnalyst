@@ -25,8 +25,8 @@ function createMockSupabaseClient({
   symbolResponse,
   barsResponse,
 }: {
-  symbolResponse: { data: { id: string; name: string; currency: string } | null; error: { message: string } | null };
-  barsResponse?: { data: Array<{ trade_date: string }>; error: { message: string } | null };
+  symbolResponse: { data: { id: string; name: string; currency: string } | null; error: { message: string; code?: string } | null };
+  barsResponse?: { data: Array<{ trade_date: string }>; error: { message: string; code?: string } | null };
 }) {
   return {
     from(table: string) {
@@ -37,6 +37,9 @@ function createMockSupabaseClient({
           },
           eq() {
             return this;
+          },
+          maybeSingle() {
+            return Promise.resolve(symbolResponse);
           },
           single() {
             return Promise.resolve(symbolResponse);
@@ -113,7 +116,7 @@ describe('createStockHistoryService', () => {
     const supabaseClient = createMockSupabaseClient({
       symbolResponse: {
         data: null,
-        error: { message: 'JSON object requested, multiple (or no) rows returned' },
+        error: { message: 'Cannot coerce the result to a single JSON object', code: 'PGRST116' },
       },
     });
     createClientMock.mockReturnValue(supabaseClient);
@@ -125,7 +128,7 @@ describe('createStockHistoryService', () => {
 
     await expect(service.validateSymbol('hk_stock', '00700')).resolves.toEqual({
       exists: false,
-      error: 'JSON object requested, multiple (or no) rows returned',
+      error: '数据库中暂无 港股 00700 的历史数据',
     });
   });
 
@@ -149,7 +152,7 @@ describe('createStockHistoryService', () => {
 
     await expect(service.validateSymbol('hk_stock', '00700')).resolves.toEqual({
       exists: false,
-      error: '数据库中没有该资产的历史数据',
+      error: '数据库中暂无 港股 00700 的历史数据',
     });
   });
 

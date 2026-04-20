@@ -11,6 +11,7 @@ import { useErrorStore } from '../stores/errorStore';
 import { useFormError, getInputErrorClass } from '../hooks/useFormError';
 import { api } from '../api';
 import { getDualClosingPriceWithFallback, type DualPriceResult } from '../utils/priceFallback';
+import { buildStockPricePayload } from '../utils/stockPriceMode';
 import { dataCache } from '../utils/dataCache';
 import type { AssetType, Currency } from '../types';
 
@@ -250,17 +251,17 @@ export function AssetForm() {
 
       setDualPrice(result);
 
-      if (result.preAdjusted.price !== null) {
-        setFormData((prev) => ({ ...prev, purchasePrice: result.preAdjusted.price!.toString() }));
+      if (result.raw.price !== null) {
+        setFormData((prev) => ({ ...prev, purchasePrice: result.raw.price!.toString() }));
         clearFieldError('purchasePrice');
 
-        if (result.preAdjusted.isHoliday && result.preAdjusted.message) {
-          addError(result.preAdjusted.message, 'info', undefined, 5000);
+        if (result.raw.isHoliday && result.raw.message) {
+          addError(result.raw.message, 'info', undefined, 5000);
         }
         return;
       }
 
-      throw new Error(result.preAdjusted.message || '获取价格失败');
+      throw new Error(result.raw.message || '获取价格失败');
     } catch (error: unknown) {
       console.error('Failed to fetch closing price:', error);
       addError(getErrorMessage(error, '获取价格失败，请手动输入'), 'error', 'purchasePrice');
@@ -451,19 +452,21 @@ export function AssetForm() {
 
     const isFund = formData.type === 'fund';
     const accumulatedNav = isFund ? window.__fundAccumulatedNav : undefined;
+    const parsedPurchasePrice = parseFloat(formData.purchasePrice);
+    const stockPricePayload = isStock
+      ? buildStockPricePayload(parsedPurchasePrice, priceInputMode, dualPrice)
+      : {};
 
     addAsset({
       type: formData.type,
       code: formData.code,
       name: formData.name || formData.code,
       purchaseDate: formData.purchaseDate,
-      purchasePrice: parseFloat(formData.purchasePrice),
+      purchasePrice: parsedPurchasePrice,
       accumulatedNavAtPurchase: accumulatedNav,
       quantity: parseFloat(formData.quantity),
       currency: formData.currency,
-      priceInputType: isStock ? (dualPrice ? 'adjusted' : priceInputMode) : undefined,
-      purchasePriceRaw: isStock && dualPrice?.raw.price !== null ? dualPrice?.raw.price : undefined,
-      purchasePriceAdjusted: isStock && dualPrice?.preAdjusted.price !== null ? dualPrice?.preAdjusted.price : undefined,
+      ...stockPricePayload,
     });
 
     dataCache.clearAll();
@@ -783,8 +786,11 @@ export function AssetForm() {
                   {!isFund && dualPrice && (
                     <div className="mt-2 p-2 bg-[#f5f5f7] dark:bg-[#2c2c2e] rounded-lg border border-[#d2d2d7] dark:border-[#424245]">
                       <div className="flex items-center justify-between text-xs text-[#86868b] dark:text-[#8e8e93]">
-                        <span>{formData.purchaseDate} 收盘价：前复权 ¥{formatPrice(dualPrice.preAdjusted.price)}</span>
+                        <span>{formData.purchaseDate} 收盘价：前复权参考价 ¥{formatPrice(dualPrice.preAdjusted.price)}</span>
                         <span>除权价 ¥{formatPrice(dualPrice.raw.price)}（当时实际价格）</span>
+                      </div>
+                      <div className="mt-1 text-[10px] text-[#86868b] dark:text-[#8e8e93] leading-4">
+                        前复权参考价用于和复权走势对齐。不同软件的复权基准日、分红送转口径、更新时间不同，所以结果会有差异；实际成交请看除权价。
                       </div>
                       {isNegativePrice(dualPrice.preAdjusted.price) && (
                         <div className="mt-1 text-[10px] text-red-500">

@@ -9,15 +9,15 @@ export interface Asset {
   code: string;
   name: string;
   purchaseDate: string;    // YYYY-MM-DD
-  purchasePrice: number;   // 买入时的单位净值（基金）或价格（股票）
+  purchasePrice: number;   // 用户确认保存的买入价
   accumulatedNavAtPurchase?: number; // 买入时的累计净值（仅基金用）
   quantity: number;
   currency: Currency;
 
-  // 新增：价格类型和双价格存储（用于股票复权处理）
-  priceInputType?: 'raw' | 'adjusted';  // 用户输入的价格类型：'raw'=除权价(实际成交价), 'adjusted'=前复权价(账户成本)
+  // 股票价格模式
+  priceInputType?: 'raw' | 'adjusted';  // raw=除权价(实际成交价), adjusted=前复权价(账户成本)
   purchasePriceRaw?: number;            // 除权价格（实际交易价格）
-  purchasePriceAdjusted?: number;       // 前复权价格（调整后用于计算）
+  purchasePriceAdjusted?: number;       // 前复权价格（用于复权走势对齐）
 }
 
 // 综合净值点
