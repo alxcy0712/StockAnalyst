@@ -5,6 +5,7 @@ import {
   createProviderError,
   fetchSingleRowOrNull,
   isSingleRowNotFoundError,
+  marketToId,
 } from './providers/common.js';
 import { fetchDatabaseKLine, checkDatabaseConnection } from './providers/database.js';
 
@@ -43,10 +44,11 @@ export function createStockHistoryService({
       return { exists: false, error: '数据库未配置' };
     }
 
+    const marketId = marketToId(market);
     const symbolQuery = supabaseClient
       .from('stock_symbols')
       .select('id, name, currency')
-      .eq('market', market)
+      .eq('market_id', marketId)
       .eq('code', code);
 
     const { data, error } = await fetchSingleRowOrNull(symbolQuery);

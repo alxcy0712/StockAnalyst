@@ -1,6 +1,14 @@
 export const STOCK_MARKETS = ['a_stock', 'hk_stock'];
+export const STOCK_MARKET_IDS = {
+  a_stock: 1,
+  hk_stock: 2,
+};
 export const STOCK_PERIODS = ['day', 'week', 'month'];
 
+
+export function marketToId(market) {
+  return STOCK_MARKET_IDS[market];
+}
 
 
 export function createProviderError(

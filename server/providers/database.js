@@ -5,6 +5,7 @@ import {
   isSingleRowNotFoundError,
   ensureSupportedPeriod,
   normalizeCompactDate,
+  marketToId,
 } from './common.js';
 
 const FQT_COLUMN_MAP = {
@@ -37,10 +38,11 @@ export async function fetchDatabaseKLine({
     });
   }
 
+  const marketId = marketToId(market);
   const symbolQuery = supabaseClient
     .from('stock_symbols')
-    .select('id, code, market, name')
-    .eq('market', market)
+    .select('id, code, market_id, name')
+    .eq('market_id', marketId)
     .eq('code', code);
 
   const { data: symbolData, error: symbolError } = await fetchSingleRowOrNull(symbolQuery);
