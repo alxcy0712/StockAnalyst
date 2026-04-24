@@ -7,8 +7,10 @@ import re
 import sys
 import time
 from dataclasses import dataclass
+from datetime import date, datetime, time as clock_time, timedelta
 from pathlib import Path
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 import akshare as ak
 import pandas as pd
@@ -19,6 +21,11 @@ API_PROVIDER = "akshare"
 MARKET_IDS = {"a_stock": 1, "hk_stock": 2}
 EXCHANGE_IDS = {"SSE": 1, "SZSE": 2, "HKEX": 3}
 PROVIDER_IDS = {"akshare": 1}
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+MARKET_CLOSE_TIMES = {
+    "a_stock": clock_time(15, 0),
+    "hk_stock": clock_time(16, 0),
+}
 MARKET_ALIASES = {
     "a_stock": "a_stock",
     "ashare": "a_stock",
@@ -82,12 +89,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-date", help="结束日期，格式 YYYY-MM-DD")
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--pause-seconds", type=float, default=0.2)
+    parser.add_argument(
+        "--incremental-from-db",
+        action="store_true",
+        help="按数据库中该标的最近两个交易日计算增量起点，从倒数第二个交易日开始抓取。",
+    )
+    parser.add_argument(
+        "--include-open-day",
+        action="store_true",
+        help="允许写入当天未收盘行情。默认跳过当天未收盘数据。",
+    )
+    parser.add_argument(
+        "--market-close-buffer-minutes",
+        type=int,
+        default=30,
+        help="收盘后等待多少分钟才允许写入当天数据，默认 30。",
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
 
 def now_utc_iso() -> str:
     return pd.Timestamp.utcnow().isoformat()
+
+
+def now_shanghai() -> datetime:
+    return datetime.now(SHANGHAI_TZ)
 
 
 def normalize_market(value: str) -> str:
@@ -141,6 +168,70 @@ def build_canonical_symbol(market: str, code: str) -> str:
 
 def currency_for_market(market: str) -> str:
     return "HKD" if market == "hk_stock" else "CNY"
+
+
+def market_close_deadline(
+    market: str,
+    now: datetime,
+    buffer_minutes: int,
+) -> datetime:
+    local_now = now.astimezone(SHANGHAI_TZ)
+    close_time = MARKET_CLOSE_TIMES[market]
+    close_at = datetime.combine(local_now.date(), close_time, tzinfo=SHANGHAI_TZ)
+    return close_at + timedelta(minutes=buffer_minutes)
+
+
+def should_skip_trade_date(
+    market: str,
+    trade_date: date,
+    now: datetime,
+    include_open_day: bool,
+    buffer_minutes: int,
+) -> bool:
+    if include_open_day:
+        return False
+
+    local_now = now.astimezone(SHANGHAI_TZ)
+    if trade_date != local_now.date():
+        return False
+
+    return local_now < market_close_deadline(market, now, buffer_minutes)
+
+
+def filter_open_day_frame(
+    frame: pd.DataFrame,
+    market: str,
+    include_open_day: bool,
+    buffer_minutes: int,
+    now: datetime | None = None,
+) -> tuple[pd.DataFrame, str | None]:
+    if frame.empty:
+        return frame, None
+
+    local_now = (now or now_shanghai()).astimezone(SHANGHAI_TZ)
+    today = local_now.date()
+    if not should_skip_trade_date(
+        market=market,
+        trade_date=today,
+        now=local_now,
+        include_open_day=include_open_day,
+        buffer_minutes=buffer_minutes,
+    ):
+        return frame, None
+
+    if today not in set(frame["date"].tolist()):
+        return frame, None
+
+    filtered = frame.loc[frame["date"] != today].copy()
+    return filtered, today.isoformat()
+
+
+def derive_incremental_start_date(rows: list[dict]) -> str | None:
+    if not rows:
+        return None
+    if len(rows) >= 2:
+        return str(rows[1]["trade_date"])
+    return str(rows[0]["trade_date"])
 
 
 def load_symbols(args: argparse.Namespace) -> list[SymbolInput]:
@@ -345,6 +436,27 @@ def insert_rows(
     return handle_response(response, table)
 
 
+def fetch_rows(
+    base_url: str,
+    service_role_key: str,
+    table: str,
+    params: dict[str, str],
+) -> list[dict]:
+    headers = build_auth_headers(service_role_key)
+    response = requests.get(
+        f"{base_url.rstrip('/')}/rest/v1/{table}",
+        params=params,
+        headers=headers,
+        timeout=60,
+    )
+    payload = handle_response(response, table)
+    if not payload:
+        return []
+    if isinstance(payload, list):
+        return payload
+    return [payload]
+
+
 def upsert_rows(
     base_url: str,
     service_role_key: str,
@@ -382,6 +494,57 @@ def upsert_rows(
                 results.append(payload)
 
     return results
+
+
+def fetch_existing_symbol_id(
+    base_url: str,
+    service_role_key: str,
+    symbol: SymbolInput,
+) -> str | None:
+    rows = fetch_rows(
+        base_url=base_url,
+        service_role_key=service_role_key,
+        table="stock_symbols",
+        params={
+            "select": "id",
+            "market_id": f"eq.{market_id_for_symbol(symbol)}",
+            "code": f"eq.{symbol.code}",
+            "limit": "1",
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]["id"]
+
+
+def fetch_incremental_start_date(
+    base_url: str,
+    service_role_key: str,
+    symbol_id: str,
+) -> str | None:
+    rows = fetch_rows(
+        base_url=base_url,
+        service_role_key=service_role_key,
+        table="stock_daily_bars",
+        params={
+            "select": "trade_date",
+            "symbol_id": f"eq.{symbol_id}",
+            "order": "trade_date.desc",
+            "limit": "2",
+        },
+    )
+    return derive_incremental_start_date(rows)
+
+
+def resolve_start_date(
+    configured_start_date: str | None,
+    incremental_start_date: str | None,
+) -> str | None:
+    if configured_start_date and incremental_start_date:
+        configured = pd.to_datetime(configured_start_date).date()
+        incremental = pd.to_datetime(incremental_start_date).date()
+        return max(configured, incremental).isoformat()
+    return incremental_start_date or configured_start_date
 
 
 def patch_rows(
@@ -490,6 +653,9 @@ def create_ingestion_run(
             "start_date": args.start_date,
             "end_date": args.end_date,
             "batch_size": args.batch_size,
+            "incremental_from_db": args.incremental_from_db,
+            "include_open_day": args.include_open_day,
+            "market_close_buffer_minutes": args.market_close_buffer_minutes,
         },
     }
     created = insert_rows(
@@ -549,17 +715,19 @@ def main() -> int:
     run_id = None
     total_bar_rows = 0
     adjusted_row_counts = {mode: 0 for mode in requested_adjusted_modes}
+    needs_database = not args.dry_run or args.incremental_from_db
 
-    if not args.dry_run:
+    if needs_database:
         try:
             base_url = require_env("SUPABASE_URL")
             service_role_key = require_env("SUPABASE_SERVICE_ROLE_KEY")
-            run_id = create_ingestion_run(
-                base_url=base_url,
-                service_role_key=service_role_key,
-                args=args,
-                symbol_count=len(symbols),
-            )
+            if not args.dry_run:
+                run_id = create_ingestion_run(
+                    base_url=base_url,
+                    service_role_key=service_role_key,
+                    args=args,
+                    symbol_count=len(symbols),
+                )
         except Exception as error:
             print(f"[error] {error}", file=sys.stderr)
             return 1
@@ -568,8 +736,54 @@ def main() -> int:
         for symbol in symbols:
             print(f"[import] {symbol.market} {symbol.code}")
 
+            symbol_id = None
+            if base_url and service_role_key:
+                if args.dry_run:
+                    symbol_id = fetch_existing_symbol_id(
+                        base_url=base_url,
+                        service_role_key=service_role_key,
+                        symbol=symbol,
+                    )
+                else:
+                    symbol_payload = upsert_rows(
+                        base_url=base_url,
+                        service_role_key=service_role_key,
+                        table="stock_symbols",
+                        on_conflict="market_id,code",
+                        rows=[build_symbol_row(symbol)],
+                        batch_size=1,
+                        return_representation=True,
+                    )
+                    symbol_id = symbol_payload[0]["id"]
+
+            incremental_start_date = None
+            if args.incremental_from_db:
+                if symbol_id:
+                    incremental_start_date = fetch_incremental_start_date(
+                        base_url=base_url,
+                        service_role_key=service_role_key,
+                        symbol_id=symbol_id,
+                    )
+                    if incremental_start_date:
+                        print(f"  - incremental start: {incremental_start_date}")
+                else:
+                    print("  - incremental start: full history (symbol not found)")
+
+            effective_start_date = resolve_start_date(
+                configured_start_date=args.start_date,
+                incremental_start_date=incremental_start_date,
+            )
+
             raw_df = fetch_history(symbol, "raw")
-            raw_frame = prepare_history_frame(raw_df, args.start_date, args.end_date)
+            raw_frame = prepare_history_frame(raw_df, effective_start_date, args.end_date)
+            raw_frame, skipped_open_day = filter_open_day_frame(
+                raw_frame,
+                market=symbol.market,
+                include_open_day=args.include_open_day,
+                buffer_minutes=args.market_close_buffer_minutes,
+            )
+            if skipped_open_day:
+                print(f"  - skipped open-day date: {skipped_open_day}")
             if symbol.market == "hk_stock":
                 raw_frame, dropped_dates = drop_repeated_hk_raw_rows(raw_frame)
                 if dropped_dates:
@@ -582,7 +796,13 @@ def main() -> int:
             for mode in requested_adjusted_modes:
                 adjusted_df = fetch_history(symbol, mode)
                 adjusted_frame = prepare_history_frame(
-                    adjusted_df, args.start_date, args.end_date
+                    adjusted_df, effective_start_date, args.end_date
+                )
+                adjusted_frame, _ = filter_open_day_frame(
+                    adjusted_frame,
+                    market=symbol.market,
+                    include_open_day=args.include_open_day,
+                    buffer_minutes=args.market_close_buffer_minutes,
                 )
                 adjusted_frames[mode] = adjusted_frame
                 adjusted_row_counts[mode] += len(adjusted_frame)
@@ -595,17 +815,7 @@ def main() -> int:
             assert base_url is not None
             assert service_role_key is not None
             assert run_id is not None
-
-            symbol_payload = upsert_rows(
-                base_url=base_url,
-                service_role_key=service_role_key,
-                table="stock_symbols",
-                on_conflict="market_id,code",
-                rows=[build_symbol_row(symbol)],
-                batch_size=1,
-                return_representation=True,
-            )
-            symbol_id = symbol_payload[0]["id"]
+            assert symbol_id is not None
 
             upsert_rows(
                 base_url=base_url,

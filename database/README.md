@@ -221,6 +221,16 @@ python3 database/import_akshare_history.py \
   --adjust-modes raw,qfq,hfq
 ```
 
+增量写入示例：
+
+```bash
+python3 database/import_akshare_history.py \
+  --symbols-file database/symbols.example.csv \
+  --adjust-modes raw,qfq,hfq \
+  --job-type incremental \
+  --incremental-from-db
+```
+
 单个标的导入示例：
 
 ```bash
@@ -235,12 +245,14 @@ python3 database/import_akshare_history.py \
 
 1. 读取并校验股票清单，剔除不合格行。
 2. 创建一条 `stock_ingestion_runs` 任务记录，写入 `provider_id=1`。
-3. 对每只股票抓取 `raw` 日线。
-4. 港股 `raw` 自动剔除与上一条 `OHLCV` 完全重复的连续行。
-5. 对需要的模式抓取 `qfq/hfq` 日线。
-6. 将同一天的 `raw/qfq/hfq` 价格合并成同一行。
-7. upsert 到 `stock_daily_bars`。
-8. 更新 `stock_ingestion_runs` 的状态和处理行数。
+3. 如果启用 `--incremental-from-db`，查询该标的最近两个 `trade_date`，从倒数第二个交易日开始抓取。
+4. 对每只股票抓取 `raw` 日线。
+5. 默认跳过当天未收盘数据，收盘缓冲时间后允许写入当天。
+6. 港股 `raw` 自动剔除与上一条 `OHLCV` 完全重复的连续行。
+7. 对需要的模式抓取 `qfq/hfq` 日线。
+8. 将同一天的 `raw/qfq/hfq` 价格合并成同一行。
+9. upsert 到 `stock_daily_bars`。
+10. 更新 `stock_ingestion_runs` 的状态和处理行数。
 
 关键点：
 
@@ -248,6 +260,8 @@ python3 database/import_akshare_history.py \
 - `qfq/hfq` 是可选列。
 - 宽表的唯一键是 `(symbol_id, trade_date)`。
 - 证券主数据的 upsert 键是 `(market_id, code)`。
+- A 股默认在 `15:30` 前跳过当天行，港股默认在 `16:30` 前跳过当天行。
+- 需要盘中写入时，可以显式传 `--include-open-day`。
 
 ## 常用参数
 
@@ -271,6 +285,12 @@ python3 database/import_akshare_history.py \
   单次批量 upsert 的行数，默认 `500`。
 - `--pause-seconds`
   每个 symbol 完成后的暂停秒数，默认 `0.2`。
+- `--incremental-from-db`
+  根据数据库中该标的最近两个交易日计算增量起点，从倒数第二个交易日开始抓取。
+- `--include-open-day`
+  允许写入当天未收盘行情。默认会跳过当天未收盘行。
+- `--market-close-buffer-minutes`
+  收盘后等待多少分钟才允许写入当天数据，默认 `30`。
 - `--dry-run`
   只抓数和统计，跳过数据库写入。
 
@@ -408,17 +428,29 @@ limit 20;
 
 ### 2. 增量同步建议
 
-推荐逻辑：
+推荐命令：
 
-1. 先查每只股票在 `stock_daily_bars` 里的最大 `trade_date`。
-2. 将新的抓取起点设为 `last_trade_date` 往前回看 `5` 到 `10` 个交易日。
-3. 对这个时间段重新抓取并 upsert。
+```bash
+python3 database/import_akshare_history.py \
+  --symbols-file database/symbols.example.csv \
+  --adjust-modes raw,qfq,hfq \
+  --job-type incremental \
+  --incremental-from-db
+```
+
+脚本逻辑：
+
+1. 先查每只股票在 `stock_daily_bars` 里的最近两个 `trade_date`。
+2. 有两条历史记录时，从倒数第二个交易日开始抓取。
+3. 只有一条历史记录时，从这条记录开始抓取。
+4. 没有历史记录时，走完整历史导入。
+5. 对这个时间段重新抓取并 upsert。
 
 效果：
 
 - 避免重复行。
-- 覆盖最近几天供应商修订的数据。
-- 修复漏抓的交易日。
+- 覆盖最近一个完整交易日和最新交易日的数据修订。
+- 自动避开周末和节假日判断，因为起点来自数据库已有交易日。
 
 ### 3. 批次控制
 

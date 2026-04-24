@@ -18,6 +18,16 @@ describe('import_akshare_history numeric schema integration', () => {
     expect(script).toContain('on_conflict="market_id,code"');
   });
 
+  it('supports open-day skipping and database incremental import options', () => {
+    expect(script).toContain('--incremental-from-db');
+    expect(script).toContain('--include-open-day');
+    expect(script).toContain('--market-close-buffer-minutes');
+    expect(script).toContain('fetch_incremental_start_date');
+    expect(script).toContain('"order": "trade_date.desc"');
+    expect(script).toContain('"limit": "2"');
+    expect(script).toContain('filter_open_day_frame');
+  });
+
   it('keeps legacy string fields out of import payloads', () => {
     expect(script).not.toContain('"metadata":');
     expect(script).not.toContain('"market": symbol.market');
