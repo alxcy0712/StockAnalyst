@@ -13,82 +13,107 @@ $set_updated_at$;
 comment on schema public is 'StockAnalyst 项目的应用数据 schema，当前承载股票主数据、宽表日线行情和导入审计。';
 comment on function public.set_updated_at() is '统一维护 updated_at 字段的触发器函数，行更新时自动写入 UTC 时间。';
 
-create table if not exists public.stock_symbols (
-  id uuid primary key default gen_random_uuid(),
-  market text not null,
-  code text not null,
-  exchange text,
-  canonical_symbol text,
-  name text,
-  currency text not null,
-  isin text,
-  list_status text not null default 'active',
-  listed_at date,
-  delisted_at date,
-  metadata jsonb not null default '{}'::jsonb,
-  is_active boolean not null default true,
-  source text not null default 'akshare',
-  created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now()),
-  unique (market, code)
+create table if not exists public.stock_markets (
+  id smallint primary key,
+  code varchar(16) not null unique,
+  name varchar(32) not null,
+  created_at timestamptz not null default timezone('utc', now())
 );
 
-alter table public.stock_symbols
-  add column if not exists exchange text,
-  add column if not exists canonical_symbol text,
-  add column if not exists isin text,
-  add column if not exists list_status text default 'active',
-  add column if not exists listed_at date,
-  add column if not exists delisted_at date,
-  add column if not exists metadata jsonb default '{}'::jsonb;
-
-alter table public.stock_symbols
-  drop column if exists provider_symbol;
-
-update public.stock_symbols
+insert into public.stock_markets (id, code, name)
+values
+  (1, 'a_stock', 'A 股'),
+  (2, 'hk_stock', '港股')
+on conflict (id) do update
 set
-  list_status = coalesce(list_status, 'active'),
-  metadata = coalesce(metadata, '{}'::jsonb),
-  updated_at = timezone('utc', now())
-where list_status is null or metadata is null;
+  code = excluded.code,
+  name = excluded.name;
 
-alter table public.stock_symbols
-  alter column list_status set default 'active',
-  alter column list_status set not null,
-  alter column metadata set default '{}'::jsonb,
-  alter column metadata set not null;
+create table if not exists public.stock_exchanges (
+  id smallint primary key,
+  code varchar(16) not null unique,
+  name varchar(32) not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+insert into public.stock_exchanges (id, code, name)
+values
+  (1, 'SSE', '上海证券交易所'),
+  (2, 'SZSE', '深圳证券交易所'),
+  (3, 'HKEX', '香港交易所')
+on conflict (id) do update
+set
+  code = excluded.code,
+  name = excluded.name;
+
+create table if not exists public.stock_providers (
+  id smallint primary key,
+  code varchar(32) not null unique,
+  name varchar(64) not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+insert into public.stock_providers (id, code, name)
+values
+  (1, 'akshare', 'AKShare')
+on conflict (id) do update
+set
+  code = excluded.code,
+  name = excluded.name;
+
+comment on table public.stock_markets is '市场字典表，固定编码：1=a_stock，2=hk_stock。';
+comment on column public.stock_markets.id is '市场数字编码。';
+comment on column public.stock_markets.code is '市场语义代码，例如 a_stock 或 hk_stock。';
+comment on column public.stock_markets.name is '市场中文名称。';
+comment on column public.stock_markets.created_at is '记录创建时间，UTC。';
+
+comment on table public.stock_exchanges is '交易所字典表，固定编码：1=SSE，2=SZSE，3=HKEX。';
+comment on column public.stock_exchanges.id is '交易所数字编码。';
+comment on column public.stock_exchanges.code is '交易所代码，例如 SSE、SZSE、HKEX。';
+comment on column public.stock_exchanges.name is '交易所中文名称。';
+comment on column public.stock_exchanges.created_at is '记录创建时间，UTC。';
+
+comment on table public.stock_providers is '数据源字典表，固定编码：1=akshare。';
+comment on column public.stock_providers.id is '数据源数字编码。';
+comment on column public.stock_providers.code is '数据源语义代码。';
+comment on column public.stock_providers.name is '数据源显示名称。';
+comment on column public.stock_providers.created_at is '记录创建时间，UTC。';
+
+create table if not exists public.stock_symbols (
+  id uuid primary key default gen_random_uuid(),
+  market_id smallint not null check (market_id in (1, 2)),
+  code varchar(16) not null,
+  exchange_id smallint not null check (exchange_id in (1, 2, 3)),
+  canonical_symbol varchar(32),
+  name varchar(128) not null,
+  currency varchar(3) not null,
+  isin varchar(12),
+  list_status varchar(16) not null default 'active',
+  listed_at date,
+  delisted_at date,
+  is_active boolean not null default true,
+  provider_id smallint not null default 1 check (provider_id in (1)),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (market_id, code)
+);
 
 comment on table public.stock_symbols is '证券主数据表，保存证券在系统内的统一身份、基础属性和生命周期状态。';
 comment on column public.stock_symbols.id is '证券主键，UUID。';
-comment on column public.stock_symbols.market is '市场类型，当前支持 a_stock 和 hk_stock。';
+comment on column public.stock_symbols.market_id is '市场数字编码，1=a_stock，2=hk_stock。';
 comment on column public.stock_symbols.code is '市场内原始证券代码，例如 600519 或 00700。';
-comment on column public.stock_symbols.exchange is '交易所代码，例如 SSE、SZSE、HKEX。';
+comment on column public.stock_symbols.exchange_id is '交易所数字编码，1=SSE，2=SZSE，3=HKEX。';
 comment on column public.stock_symbols.canonical_symbol is '系统统一证券标识，例如 SH:600519、HK:00700。';
-comment on column public.stock_symbols.name is '证券名称。';
+comment on column public.stock_symbols.name is '证券名称，由导入脚本补全。';
 comment on column public.stock_symbols.currency is '交易币种，例如 CNY、HKD。';
 comment on column public.stock_symbols.isin is '国际证券识别码，当前可为空，后续可补齐。';
 comment on column public.stock_symbols.list_status is '上市状态，active 表示正常交易，delisted 表示退市，suspended 表示停牌，pending 表示待上市。';
 comment on column public.stock_symbols.listed_at is '上市日期。';
 comment on column public.stock_symbols.delisted_at is '退市日期。';
-comment on column public.stock_symbols.metadata is '扩展元数据，JSONB 格式，预留给行业、板块、额外标签等信息。';
 comment on column public.stock_symbols.is_active is '业务启用标记，true 表示当前仍参与导入和查询。';
-comment on column public.stock_symbols.source is '主数据来源，当前默认 akshare。';
+comment on column public.stock_symbols.provider_id is '主数据来源数字编码，1=akshare。';
 comment on column public.stock_symbols.created_at is '记录创建时间，UTC。';
 comment on column public.stock_symbols.updated_at is '记录更新时间，UTC。';
-
-do $stock_symbols_market_check$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'stock_symbols_market_check_v2'
-  ) then
-    alter table public.stock_symbols
-      add constraint stock_symbols_market_check_v2
-      check (market in ('a_stock', 'hk_stock'));
-  end if;
-end;
-$stock_symbols_market_check$;
 
 do $stock_symbols_list_status_check$
 begin
@@ -109,15 +134,15 @@ create unique index if not exists stock_symbols_canonical_symbol_uidx
   where canonical_symbol is not null;
 
 create index if not exists stock_symbols_market_idx
-  on public.stock_symbols (market, code);
+  on public.stock_symbols (market_id, code);
 
 drop table if exists public.stock_symbol_provider_mappings;
 
 create table if not exists public.stock_ingestion_runs (
   id uuid primary key default gen_random_uuid(),
-  provider text not null,
-  job_type text not null,
-  status text not null,
+  provider_id smallint not null default 1 check (provider_id in (1)),
+  job_type varchar(16) not null,
+  status varchar(16) not null,
   symbol_count integer not null default 0,
   row_count integer not null default 0,
   started_at timestamptz not null default timezone('utc', now()),
@@ -130,7 +155,7 @@ create table if not exists public.stock_ingestion_runs (
 
 comment on table public.stock_ingestion_runs is '导入任务审计表，记录一次回填、增量同步或修复任务的执行状态和结果。';
 comment on column public.stock_ingestion_runs.id is '导入任务主键，UUID。';
-comment on column public.stock_ingestion_runs.provider is '本次导入使用的数据源名称。';
+comment on column public.stock_ingestion_runs.provider_id is '本次导入使用的数据源数字编码，1=akshare。';
 comment on column public.stock_ingestion_runs.job_type is '任务类型，backfill 表示历史回填，incremental 表示增量更新，repair 表示修复任务。';
 comment on column public.stock_ingestion_runs.status is '任务状态，running/succeeded/failed/partial。';
 comment on column public.stock_ingestion_runs.symbol_count is '本次任务计划处理的证券数量。';
@@ -171,7 +196,7 @@ end;
 $stock_ingestion_runs_status_check$;
 
 create index if not exists stock_ingestion_runs_provider_status_idx
-  on public.stock_ingestion_runs (provider, status, started_at desc);
+  on public.stock_ingestion_runs (provider_id, status, started_at desc);
 
 do $stock_daily_bars_legacy_rename$
 begin
@@ -216,7 +241,7 @@ create table if not exists public.stock_daily_bars (
   hfq_close numeric(18, 6),
   volume bigint,
   amount numeric(24, 4),
-  provider text not null,
+  provider_id smallint not null default 1 check (provider_id in (1)),
   source_updated_at timestamptz,
   ingestion_run_id uuid references public.stock_ingestion_runs(id) on delete set null,
   imported_at timestamptz not null default timezone('utc', now()),
@@ -241,7 +266,7 @@ comment on column public.stock_daily_bars.hfq_low is '后复权最低价。';
 comment on column public.stock_daily_bars.hfq_close is '后复权收盘价。';
 comment on column public.stock_daily_bars.volume is '成交量，股票场景下按股数或 Provider 原始单位保存。';
 comment on column public.stock_daily_bars.amount is '成交额，沿用 Provider 原始货币单位。';
-comment on column public.stock_daily_bars.provider is '写入该行数据时使用的外部数据源名称。';
+comment on column public.stock_daily_bars.provider_id is '写入该行数据时使用的数据源数字编码，1=akshare。';
 comment on column public.stock_daily_bars.source_updated_at is '外部数据源标识的更新时间，当前脚本可为空。';
 comment on column public.stock_daily_bars.ingestion_run_id is '写入该行数据的导入任务主键。';
 comment on column public.stock_daily_bars.imported_at is '该行首次写入时间，UTC。';
