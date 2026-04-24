@@ -16,6 +16,9 @@ import requests
 
 
 API_PROVIDER = "akshare"
+MARKET_IDS = {"a_stock": 1, "hk_stock": 2}
+EXCHANGE_IDS = {"SSE": 1, "SZSE": 2, "HKEX": 3}
+PROVIDER_IDS = {"akshare": 1}
 MARKET_ALIASES = {
     "a_stock": "a_stock",
     "ashare": "a_stock",
@@ -114,6 +117,14 @@ def exchange_for_symbol(market: str, code: str) -> str:
     if market == "hk_stock":
         return "HKEX"
     return "SSE" if code.startswith("6") else "SZSE"
+
+
+def market_id_for_symbol(symbol: SymbolInput) -> int:
+    return MARKET_IDS[symbol.market]
+
+
+def exchange_id_for_symbol(symbol: SymbolInput) -> int:
+    return EXCHANGE_IDS[exchange_for_symbol(symbol.market, symbol.code)]
 
 
 def build_akshare_symbol(market: str, code: str) -> str:
@@ -394,16 +405,15 @@ def patch_rows(
 
 def build_symbol_row(symbol: SymbolInput) -> dict:
     return {
-        "market": symbol.market,
+        "market_id": market_id_for_symbol(symbol),
         "code": symbol.code,
-        "exchange": exchange_for_symbol(symbol.market, symbol.code),
+        "exchange_id": exchange_id_for_symbol(symbol),
         "canonical_symbol": build_canonical_symbol(symbol.market, symbol.code),
-        "name": symbol.name,
+        "name": symbol.name or symbol.code,
         "currency": currency_for_market(symbol.market),
         "list_status": "active",
         "is_active": True,
-        "source": API_PROVIDER,
-        "metadata": {},
+        "provider_id": PROVIDER_IDS[API_PROVIDER],
     }
 
 
@@ -441,7 +451,7 @@ def build_daily_bar_rows(
             "raw_close": to_float(row.get("close")),
             "volume": to_int(row.get("volume")),
             "amount": to_float(row.get("amount")),
-            "provider": API_PROVIDER,
+            "provider_id": PROVIDER_IDS[API_PROVIDER],
             "ingestion_run_id": ingestion_run_id,
         }
 
@@ -466,7 +476,7 @@ def create_ingestion_run(
     symbol_count: int,
 ) -> str:
     row = {
-        "provider": API_PROVIDER,
+        "provider_id": PROVIDER_IDS[API_PROVIDER],
         "job_type": args.job_type,
         "status": "running",
         "symbol_count": symbol_count,
@@ -590,7 +600,7 @@ def main() -> int:
                 base_url=base_url,
                 service_role_key=service_role_key,
                 table="stock_symbols",
-                on_conflict="market,code",
+                on_conflict="market_id,code",
                 rows=[build_symbol_row(symbol)],
                 batch_size=1,
                 return_representation=True,
