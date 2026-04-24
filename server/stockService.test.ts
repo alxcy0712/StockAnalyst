@@ -28,45 +28,50 @@ function createMockSupabaseClient({
   symbolResponse: { data: { id: string; name: string; currency: string } | null; error: { message: string; code?: string } | null };
   barsResponse?: { data: Array<{ trade_date: string }>; error: { message: string; code?: string } | null };
 }) {
+  const symbolFilters: Array<[string, unknown]> = [];
   return {
-    from(table: string) {
-      if (table === 'stock_symbols') {
-        return {
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          maybeSingle() {
-            return Promise.resolve(symbolResponse);
-          },
-          single() {
-            return Promise.resolve(symbolResponse);
-          },
-        };
-      }
+    symbolFilters,
+    client: {
+      from(table: string) {
+        if (table === 'stock_symbols') {
+          return {
+            select() {
+              return this;
+            },
+            eq(column: string, value: unknown) {
+              symbolFilters.push([column, value]);
+              return this;
+            },
+            maybeSingle() {
+              return Promise.resolve(symbolResponse);
+            },
+            single() {
+              return Promise.resolve(symbolResponse);
+            },
+          };
+        }
 
-      if (table === 'stock_daily_bars') {
-        return {
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          limit() {
-            return Promise.resolve(
-              barsResponse ?? {
-                data: [{ trade_date: '2024-01-02' }],
-                error: null,
-              }
-            );
-          },
-        };
-      }
+        if (table === 'stock_daily_bars') {
+          return {
+            select() {
+              return this;
+            },
+            eq() {
+              return this;
+            },
+            limit() {
+              return Promise.resolve(
+                barsResponse ?? {
+                  data: [{ trade_date: '2024-01-02' }],
+                  error: null,
+                }
+              );
+            },
+          };
+        }
 
-      throw new Error(`Unexpected table: ${table}`);
+        throw new Error(`Unexpected table: ${table}`);
+      },
     },
   };
 }
@@ -89,7 +94,7 @@ describe('createStockHistoryService', () => {
   });
 
   it('returns symbol metadata when validation succeeds', async () => {
-    const supabaseClient = createMockSupabaseClient({
+    const { client: supabaseClient, symbolFilters } = createMockSupabaseClient({
       symbolResponse: {
         data: { id: 'symbol-1', name: '贵州茅台', currency: 'CNY' },
         error: null,
@@ -110,10 +115,14 @@ describe('createStockHistoryService', () => {
       exists: true,
       symbol: { id: 'symbol-1', name: '贵州茅台', currency: 'CNY' },
     });
+    expect(symbolFilters).toEqual([
+      ['market_id', 1],
+      ['code', '600519'],
+    ]);
   });
 
   it('returns provider error text when symbol is missing', async () => {
-    const supabaseClient = createMockSupabaseClient({
+    const { client: supabaseClient } = createMockSupabaseClient({
       symbolResponse: {
         data: null,
         error: { message: 'Cannot coerce the result to a single JSON object', code: 'PGRST116' },
@@ -133,7 +142,7 @@ describe('createStockHistoryService', () => {
   });
 
   it('returns missing history when symbol metadata exists without daily bars', async () => {
-    const supabaseClient = createMockSupabaseClient({
+    const { client: supabaseClient } = createMockSupabaseClient({
       symbolResponse: {
         data: { id: 'symbol-1', name: '腾讯控股', currency: 'HKD' },
         error: null,

@@ -6,14 +6,16 @@ function createMockSupabaseClient({
   symbolData,
   pageBatches,
 }: {
-  symbolData: { id: string; code: string; market: string; name: string };
+  symbolData: { id: string; code: string; market_id: number; name: string };
   pageBatches: Array<Array<Record<string, unknown>>>;
 }) {
   const requestedRanges: Array<[number, number]> = [];
+  const symbolFilters: Array<[string, unknown]> = [];
   let pageIndex = 0;
 
   return {
     requestedRanges,
+    symbolFilters,
     client: {
       from(table: string) {
         if (table === 'stock_symbols') {
@@ -21,7 +23,8 @@ function createMockSupabaseClient({
           select() {
             return this;
           },
-          eq() {
+          eq(column: string, value: unknown) {
+            symbolFilters.push([column, value]);
             return this;
           },
           maybeSingle() {
@@ -94,11 +97,11 @@ describe('fetchDatabaseKLine', () => {
       },
     ];
 
-    const { client, requestedRanges } = createMockSupabaseClient({
+    const { client, requestedRanges, symbolFilters } = createMockSupabaseClient({
       symbolData: {
         id: 'symbol-1',
         code: '600519',
-        market: 'a_stock',
+        market_id: 1,
         name: '贵州茅台',
       },
       pageBatches: [firstPage, secondPage],
@@ -126,6 +129,10 @@ describe('fetchDatabaseKLine', () => {
     expect(requestedRanges).toEqual([
       [0, 999],
       [1000, 1999],
+    ]);
+    expect(symbolFilters).toEqual([
+      ['market_id', 1],
+      ['code', '600519'],
     ]);
   });
 });
