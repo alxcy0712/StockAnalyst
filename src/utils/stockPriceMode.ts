@@ -21,6 +21,7 @@ export function buildStockPricePayload(
   };
 }
 
-export function getStockHistoryFqt(_asset: Asset): 1 {
+export function getStockHistoryFqt(asset: Asset): 1 {
+  void asset;
   return 1;
 }

@@ -4,6 +4,7 @@ import { AssetForm } from './components/AssetForm';
 import { AssetList } from './components/AssetList';
 import { AssetAllocationChart } from './components/AssetAllocationChart';
 import { NavChart } from './components/NavChart';
+import { StockAssetLibraryDialog } from './components/StockAssetLibraryDialog';
 import { TrendingUp, BarChart3, Database, Clock, Sun, Moon, Monitor, RefreshCw } from 'lucide-react';
 import { useThemeStore } from './stores/themeStore';
 import { useExchangeStore } from './stores/exchangeStore';
@@ -68,10 +69,10 @@ function App() {
         transition={{ duration: 0.6, ease: APPLE_EASE }}
         className="bg-white/70 dark:bg-[#1c1c1e]/70 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-800/50 sticky top-0 z-40"
       >
-        <div className="max-w-[1400px] mx-auto px-8 sm:px-10">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-10">
           <div className="flex justify-between items-center h-16">
             <motion.div
-              className="flex items-center gap-3"
+              className="flex items-center gap-2 sm:gap-3"
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.1, ease: APPLE_EASE }}
@@ -116,6 +117,7 @@ function App() {
               >
                 <ThemeIcon />
               </button>
+              <StockAssetLibraryDialog />
               <AssetForm />
             </motion.div>
           </div>

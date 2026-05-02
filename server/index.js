@@ -8,7 +8,7 @@ app.use(express.json());
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
@@ -16,6 +16,13 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+function sendServiceError(res, error, fallbackMessage) {
+  res.status(error.statusCode || 500).json({
+    message: error.message || fallbackMessage,
+    code: error.code || 'internal_error',
+  });
+}
 
 app.get('/api/fundnav/history', async (req, res) => {
   try {
@@ -108,6 +115,60 @@ app.get('/api/fundnav/all', async (req, res) => {
   } catch (err) {
     console.error('Proxy fetch error:', err);
     res.status(500).send('proxy error');
+  }
+});
+
+app.get('/api/stocks', async (_req, res) => {
+  try {
+    const payload = await stockHistoryService.listDatabaseStocks();
+    res.json(payload);
+  } catch (error) {
+    console.error('Stock library list error:', error);
+    sendServiceError(res, error, 'stock library list error');
+  }
+});
+
+app.post('/api/stocks/import', async (req, res) => {
+  try {
+    const {
+      market,
+      code,
+      name,
+      mode = 'backfill',
+    } = req.body || {};
+
+    const payload = await stockHistoryService.importStockData({
+      mode,
+      symbols: [{ market, code, name }],
+    });
+
+    res.status(201).json(payload);
+  } catch (error) {
+    console.error('Stock import error:', error);
+    sendServiceError(res, error, 'stock import error');
+  }
+});
+
+app.post('/api/stocks/refresh', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map(String).filter(Boolean)
+      : undefined;
+    const payload = await stockHistoryService.refreshDatabaseStocks(ids?.length ? ids : undefined);
+    res.json(payload);
+  } catch (error) {
+    console.error('Stock refresh error:', error);
+    sendServiceError(res, error, 'stock refresh error');
+  }
+});
+
+app.delete('/api/stocks/:id', async (req, res) => {
+  try {
+    const payload = await stockHistoryService.deleteDatabaseStock(req.params.id);
+    res.json(payload);
+  } catch (error) {
+    console.error('Stock delete error:', error);
+    sendServiceError(res, error, 'stock delete error');
   }
 });
 

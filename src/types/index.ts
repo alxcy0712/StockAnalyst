@@ -111,6 +111,54 @@ export interface StockValidationResult {
   message?: string;
 }
 
+export interface DatabaseStock {
+  id: string;
+  market: StockMarket;
+  code: string;
+  name: string;
+  currency: Currency;
+  listStatus: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  latestTradeDate: string | null;
+  rowCount: number;
+}
+
+export interface DatabaseStockListResponse {
+  stocks: DatabaseStock[];
+}
+
+export interface DatabaseStockImportRequest {
+  market: StockMarket;
+  code: string;
+  name?: string;
+  mode: 'backfill' | 'incremental';
+}
+
+export interface DatabaseStockImportResponse {
+  ok: boolean;
+  mode: 'backfill' | 'incremental';
+  symbols: Array<{
+    market: StockMarket;
+    code: string;
+    name?: string;
+  }>;
+  stdout: string;
+  stderr: string;
+}
+
+export interface DatabaseStockDeleteResponse {
+  deleted: boolean;
+  stock: {
+    id: string;
+    market: StockMarket;
+    code: string;
+    name: string;
+    currency: Currency;
+  };
+}
+
 export type BenchmarkIndex = 'csi300' | 'shanghai' | 'none';
 
 export interface BenchmarkConfig {

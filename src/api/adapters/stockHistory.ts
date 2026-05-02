@@ -1,4 +1,8 @@
 import type {
+  DatabaseStockDeleteResponse,
+  DatabaseStockImportRequest,
+  DatabaseStockImportResponse,
+  DatabaseStockListResponse,
   KLineData,
   StockKLineEnvelope,
   StockMarket,
@@ -26,6 +30,74 @@ function buildQuery(params: Record<string, string | number | undefined>): string
   });
 
   return query.toString();
+}
+
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    if (payload?.message) {
+      return payload.message;
+    }
+  } catch {
+    // Use fallback.
+  }
+
+  return fallback;
+}
+
+export async function listDatabaseStocks(): Promise<DatabaseStockListResponse> {
+  const response = await fetch(buildBackendUrl('/api/stocks'));
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, '获取资产库失败'));
+  }
+
+  return (await response.json()) as DatabaseStockListResponse;
+}
+
+export async function importDatabaseStock(
+  request: DatabaseStockImportRequest
+): Promise<DatabaseStockImportResponse> {
+  const response = await fetch(buildBackendUrl('/api/stocks/import'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, '导入资产失败'));
+  }
+
+  return (await response.json()) as DatabaseStockImportResponse;
+}
+
+export async function refreshDatabaseStocks(ids?: string[]): Promise<DatabaseStockImportResponse> {
+  const response = await fetch(buildBackendUrl('/api/stocks/refresh'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(ids?.length ? { ids } : {}),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, '更新资产库失败'));
+  }
+
+  return (await response.json()) as DatabaseStockImportResponse;
+}
+
+export async function deleteDatabaseStock(id: string): Promise<DatabaseStockDeleteResponse> {
+  const response = await fetch(buildBackendUrl(`/api/stocks/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, '删除资产失败'));
+  }
+
+  return (await response.json()) as DatabaseStockDeleteResponse;
 }
 
 export async function validateStockCode(
@@ -62,17 +134,7 @@ async function fetchStockKLineEnvelope(request: StockKLineRequest): Promise<Stoc
 
   const response = await fetch(`${buildBackendUrl('/api/stock/kline')}?${query}`);
   if (!response.ok) {
-    let message = '获取股票历史数据失败';
-    try {
-      const payload = await response.json();
-      if (payload?.message) {
-        message = payload.message;
-      }
-    } catch {
-      // Keep default message.
-    }
-
-    throw new Error(message);
+    throw new Error(await readErrorMessage(response, '获取股票历史数据失败'));
   }
 
   return (await response.json()) as StockKLineEnvelope;

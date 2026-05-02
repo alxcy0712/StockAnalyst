@@ -19,8 +19,12 @@ vi.mock('../api/adapters/eastmoney', () => ({
 }));
 
 vi.mock('../api/adapters/stockHistory', () => ({
+  deleteDatabaseStock: vi.fn(),
   getAStockKLine: vi.fn(),
   getHKStockKLine: vi.fn(),
+  importDatabaseStock: vi.fn(),
+  listDatabaseStocks: vi.fn(),
+  refreshDatabaseStocks: vi.fn(),
   validateStockCode: vi.fn(),
 }));
 

@@ -522,10 +522,11 @@ export function AssetForm() {
         onClick={() => setIsOpen(true)}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-full transition-all duration-200 shadow-sm"
+        className="h-10 flex items-center gap-1.5 px-3 sm:px-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-full transition-all duration-200 shadow-sm"
+        aria-label="添加资产"
       >
         <Plus size={16} strokeWidth={2.5} />
-        <span>添加资产</span>
+        <span className="hidden sm:inline">添加资产</span>
       </motion.button>
 
       {isOpen && createPortal(
